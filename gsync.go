@@ -9,12 +9,14 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-
 	"log"
+	"os"
 	"os/user"
 	"path"
+	"path/filepath"
+	"strings"
 
-	drive "code.google.com/p/google-api-go-client/drive/v2"
+	"code.google.com/p/google-api-go-client/drive/v2"
 	gdp "github.com/marcopaganini/gdrive_path"
 )
 
@@ -27,12 +29,33 @@ var (
 	clientId     = flag.String("id", "", "Client ID")
 	clientSecret = flag.String("secret", "", "Client Secret")
 	code         = flag.String("code", "", "Authorization Code")
-	requestURL   = flag.String("request_url", "https://www.googleapis.com/oauth2/v1/userinfo", "API request")
 )
 
 type GdriveCredentials struct {
 	ClientId     string
 	ClientSecret string
+}
+
+// Retrieve the source and destination from the command-line, performing basic sanity checking
+//
+// Returns:
+// 	string: source directory
+// 	string: destination directory
+// 	error
+func getSourceDest() (string, string, error) {
+	if flag.NArg() != 2 {
+		return "", "", fmt.Errorf("Must specify source and destination directories")
+	}
+
+	src := flag.Arg(0)
+	dst := flag.Arg(1)
+
+	// Only supports copies *to* Google Drive for now
+	if strings.HasPrefix(src, "g:") || strings.HasPrefix(src, "gdrive:") ||
+		!(strings.HasPrefix(dst, "g:") || strings.HasPrefix(dst, "gdrive:")) {
+		return "", "", fmt.Errorf("Temporarily, only copies to Google Drive are supported")
+	}
+	return src, dst, nil
 }
 
 // Save and/or load credentials from disk.
@@ -70,98 +93,96 @@ func handleCredentials(credFile string, clientId string, clientSecret string) (*
 	return cred, nil
 }
 
-func main() {
-	//var dirs []string
-
-	flag.Parse()
-
+// Initialize Gdrive using the gdrive_path library. Uses CREDENTIALS_FILE and AUTH_CACHE_FILE
+// under the current user's homedir to store credentials and the token, respectively.
+//
+// Returns:
+//   *gdrive.Gdrive
+//   error
+func initGdrive() (*gdp.Gdrive, error) {
+	// Create Gdrive object & authenticate
 	usr, err := user.Current()
 	if err != nil {
-		log.Fatalf("Unable to get user information")
+		return nil, fmt.Errorf("Unable to get current user information from the OS")
 	}
 
 	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
 	cred, err := handleCredentials(credfile, *clientId, *clientSecret)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
 	g, err := gdp.NewGdrivePath(cred.ClientId, cred.ClientSecret, *code, drive.DriveScope, cachefile)
 	if err != nil {
-		log.Fatalf("Unable to initialize GdrivePath: %v", err)
+		return nil, fmt.Errorf("Unable to initialize GdrivePath: %v", err)
 	}
 
-	/*
-		_, err = g.Insert("tmp/foofile", "/tmp/foofile")
-		if err != nil {
-			log.Fatalln(err)
-		}
-	*/
+	return g, nil
+}
 
-	err = g.Download("tmp/foofile", "/tmp/foofile2")
+// Prints error message and program usage to stderr, exit the program.
+func usage(err error) {
+	fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+	fmt.Fprintf(os.Stderr, "Usage%s:\n", os.Args[0])
+	flag.PrintDefaults()
+	os.Exit(2)
+}
+
+func main() {
+	//var dirs []string
+
+	flag.Parse()
+
+	srcdir, dstdir, err := getSourceDest()
 	if err != nil {
-		log.Fatalln(err)
+		usage(err)
+	}
+	// TODO:For now we just remove the g: or gdrive: prefixes dstdir
+	idx := strings.Index(dstdir, ":")
+	if idx != -1 {
+		dstdir = dstdir[idx+1:]
 	}
 
-	/*
-		// Copy parameters
-		dstDir := "pix/.thumbnails"
-		srcdir := "/home/paganini/pix/.thumbnails"
+	g, err := initGdrive()
 
-		dirs = append(dirs, srcdir)
+	err = filepath.Walk(srcdir, func(src string, fi os.FileInfo, err error) error {
+		// We always copy from a directory *INTO* a destination directory
+		// Similar to rsync's rsync source/ dest.
+		// TODO(Fix this later)
+		dst := path.Join(dstdir, src[len(srcdir):])
 
-		idx := 0
-		for idx < len(dirs) {
-			dirname := dirs[idx]
-			subDir := path.Join(dstDir, dirname[len(srcdir):])
-
-			fmt.Printf("====> %s\n", dirname)
-			fmt.Printf("Creating %s\n", subDir)
+		// If directory, create remote
+		if fi.IsDir() {
+			fmt.Printf("====> %s\n", src)
+			fmt.Printf("      %s\n", dst)
 
 			// Create destination dir
-			dstObj, err := g.Mkdir(subDir)
+			_, err := g.Mkdir(dst)
 			if err != nil {
-				log.Fatalf("Mkdir(%s): %v", subDir, err)
+				log.Fatalln(err)
 			}
-			if dstObj == nil {
-				log.Fatalf("Mkdir(%s): Unable to create", subDir)
-			}
+		} else if fi.Mode().IsRegular() {
+			copyStat := "Not copied"
 
-			flist, err := io.ReadDir(dirname)
+			//fmt.Printf("Attempting to copy [%s] to [%s]\n", src, dst)
+			copyNeeded, err := g.RemotePathOutdated(dst, src)
 			if err != nil {
-				log.Fatalf("ReadDir(%s): %v", dirname, err)
+				log.Fatalln(err)
 			}
 
-			for _, fi := range flist {
-				if fi.Mode().IsDir() {
-					dirs = append(dirs, path.Join(dirname, fi.Name()))
-				}
-				if fi.Mode().IsRegular() {
-					localFile := path.Join(dirname, fi.Name())
-					remoteFile := path.Join(subDir, fi.Name())
-
-					copyStat := "Not copied"
-
-					copyNeeded, err := g.RemotePathOutdated(remoteFile, localFile)
-					if err != nil {
-						log.Fatalln(err)
-					}
-
-					if copyNeeded {
-						copyStat = "Copied"
-						driveFile, err := g.Insert(remoteFile, localFile)
-						if err != nil {
-							log.Fatalf("Insert(%s->%s): %v", localFile, remoteFile, err)
-						}
-						if driveFile == nil {
-							log.Fatalf("Insert(%s->%s): Error in path inserting file", localFile, remoteFile)
-						}
-					}
-					fmt.Printf("    %8d %s [%s]\n", fi.Size(), localFile, copyStat)
+			if copyNeeded {
+				copyStat = "Copied"
+				_, err := g.Insert(dst, src)
+				if err != nil {
+					log.Fatalln(err)
 				}
 			}
-			idx++
+			fmt.Printf("    %8d %s -> %s [%s]\n", fi.Size(), src, dst, copyStat)
+		} else {
+			fmt.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
 		}
-	*/
+
+		return nil
+	})
 }
