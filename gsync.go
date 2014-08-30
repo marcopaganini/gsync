@@ -13,8 +13,9 @@ import (
 	"os"
 	"os/user"
 	"path"
-	"path/filepath"
 	"strings"
+
+	"github.com/marcopaganini/gsync/lfs"
 
 	"code.google.com/p/google-api-go-client/drive/v2"
 	gdp "github.com/marcopaganini/gdrive_path"
@@ -130,7 +131,7 @@ func usage(err error) {
 }
 
 func main() {
-	//var dirs []string
+	var dst string
 
 	flag.Parse()
 
@@ -145,15 +146,43 @@ func main() {
 	}
 
 	g, err := initGdrive()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	err = filepath.Walk(srcdir, func(src string, fi os.FileInfo, err error) error {
-		// We always copy from a directory *INTO* a destination directory
-		// Similar to rsync's rsync source/ dest.
-		// TODO(Fix this later)
-		dst := path.Join(dstdir, src[len(srcdir):])
+	lfs := lfs.NewLocalFileSystem(srcdir)
+	filetree, err := lfs.FileTree()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, f := range filetree {
+		src := lfs.FullName(f)
+
+		// If the source path ends in a slash, we'll copy the *contents* of the
+		// source directory to the destination. If it doesn't, we'll create a
+		// directory inside the destination. This matches rsync's behavior
+		//
+		// Ex:
+		// /a/b/c/ -> foo = /foo/<files>...
+		// /a/b/c  -> foo = /foo/c/<files>...
+
+		// Default == copy files INTO directory at destination
+		dst = path.Join(dstdir, src[len(srcdir):])
+
+		// If source does not end in "/", we create the directory specified
+		// by srcdir as the first level inside the destination.
+		if !strings.HasSuffix(srcdir, "/") {
+			sdir := strings.Split(srcdir, "/")
+			if len(sdir) > 1 {
+				last := len(sdir) - 1
+				ssrc := strings.Split(src, "/")
+				dst = path.Join(dstdir, strings.Join(ssrc[last:], "/"))
+			}
+		}
 
 		// If directory, create remote
-		if fi.IsDir() {
+		if lfs.IsDir(f) {
 			fmt.Printf("====> %s\n", src)
 			fmt.Printf("      %s\n", dst)
 
@@ -162,7 +191,7 @@ func main() {
 			if err != nil {
 				log.Fatalln(err)
 			}
-		} else if fi.Mode().IsRegular() {
+		} else if lfs.IsRegular(f) {
 			copyStat := "Not copied"
 
 			//fmt.Printf("Attempting to copy [%s] to [%s]\n", src, dst)
@@ -178,11 +207,9 @@ func main() {
 					log.Fatalln(err)
 				}
 			}
-			fmt.Printf("    %8d %s -> %s [%s]\n", fi.Size(), src, dst, copyStat)
+			fmt.Printf("    %8d %s -> %s [%s]\n", lfs.Size(f), src, dst, copyStat)
 		} else {
 			fmt.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
 		}
-
-		return nil
-	})
+	}
 }
