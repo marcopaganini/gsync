@@ -28,7 +28,21 @@ type localFileSystem struct {
 //   *localFileSystem
 func NewLocalFileSystem(path string) *localFileSystem {
 	fs := &localFileSystem{path: path}
+	fs.init()
 	return fs
+}
+
+// Initialize a localFileSystem object, loading the entire file tree under fs.path
+//
+// Returns:
+//   error
+func (fs *localFileSystem) init() error {
+	err := filepath.Walk(fs.path, func(srcpath string, fi os.FileInfo, err error) error {
+		lfile := &localFile{path: srcpath, fi: fi}
+		fs.fileList = append(fs.fileList, lfile)
+		return nil
+	})
+	return err
 }
 
 // Return an array containing a list representing file objects in the local
@@ -38,17 +52,6 @@ func NewLocalFileSystem(path string) *localFileSystem {
 //   []string - Array containing the list of files
 //   error
 func (fs *localFileSystem) FileTree() ([]*localFile, error) {
-
-	if len(fs.fileList) == 0 {
-		err := filepath.Walk(fs.path, func(srcpath string, fi os.FileInfo, err error) error {
-			lfile := &localFile{path: srcpath, fi: fi}
-			fs.fileList = append(fs.fileList, lfile)
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	return fs.fileList, nil
 }
