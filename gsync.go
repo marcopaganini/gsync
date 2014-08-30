@@ -149,13 +149,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lfs := fs.NewLocalFileSystem(srcdir)
-	filetree, err := lfs.FileTree()
+	lfs, err := fs.NewLocalFileSystem(srcdir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, f := range filetree {
+	for _, f := range lfs.FileTree() {
 		src := lfs.FullName(f)
 
 		// If the source path ends in a slash, we'll copy the *contents* of the

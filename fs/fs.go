@@ -26,10 +26,11 @@ type localFileSystem struct {
 //
 // Returns:
 //   *localFileSystem
-func NewLocalFileSystem(path string) *localFileSystem {
+//   error
+func NewLocalFileSystem(path string) (*localFileSystem, error) {
 	fs := &localFileSystem{path: path}
-	fs.init()
-	return fs
+	err := fs.init()
+	return fs, err
 }
 
 // Initialize a localFileSystem object, loading the entire file tree under fs.path
@@ -51,9 +52,8 @@ func (fs *localFileSystem) init() error {
 // Returns:
 //   []string - Array containing the list of files
 //   error
-func (fs *localFileSystem) FileTree() ([]*localFile, error) {
-
-	return fs.fileList, nil
+func (fs *localFileSystem) FileTree() []*localFile {
+	return fs.fileList
 }
 
 // Return the full name of the localFile object
