@@ -1,4 +1,4 @@
-package lfs
+package fs
 
 // Local filesystem abstractions for gsync
 //

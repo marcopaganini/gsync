@@ -15,10 +15,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/marcopaganini/gsync/lfs"
-
 	"code.google.com/p/google-api-go-client/drive/v2"
 	gdp "github.com/marcopaganini/gdrive_path"
+	"github.com/marcopaganini/gsync/fs"
 )
 
 const (
@@ -150,7 +149,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lfs := lfs.NewLocalFileSystem(srcdir)
+	lfs := fs.NewLocalFileSystem(srcdir)
 	filetree, err := lfs.FileTree()
 	if err != nil {
 		log.Fatal(err)
