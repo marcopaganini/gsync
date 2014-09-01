@@ -17,7 +17,7 @@ import (
 
 	"code.google.com/p/google-api-go-client/drive/v2"
 	gdp "github.com/marcopaganini/gdrive_path"
-	"github.com/marcopaganini/gsync/fs"
+	"github.com/marcopaganini/gsync/vfs"
 )
 
 const (
@@ -149,7 +149,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lfs, err := fs.NewLocalFileSystem(srcdir)
+	lfs, err := localvfs.NewLocalFileSystem(srcdir)
 	if err != nil {
 		log.Fatal(err)
 	}
