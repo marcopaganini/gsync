@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,9 +16,8 @@ import (
 	"path"
 	"strings"
 
-	"code.google.com/p/google-api-go-client/drive/v2"
-	gdp "github.com/marcopaganini/gdrive_path"
-	"github.com/marcopaganini/gsync/vfs"
+	"github.com/marcopaganini/gsync/vfs/gdrive"
+	"github.com/marcopaganini/gsync/vfs/local"
 )
 
 const (
@@ -93,70 +93,41 @@ func handleCredentials(credFile string, clientId string, clientSecret string) (*
 	return cred, nil
 }
 
-// Initialize Gdrive using the gdrive_path library. Uses CREDENTIALS_FILE and AUTH_CACHE_FILE
-// under the current user's homedir to store credentials and the token, respectively.
-//
-// Returns:
-//   *gdrive.Gdrive
-//   error
-func initGdrive() (*gdp.Gdrive, error) {
-	// Create Gdrive object & authenticate
-	usr, err := user.Current()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to get current user information from the OS")
-	}
-
-	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
-	cred, err := handleCredentials(credfile, *clientId, *clientSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
-	g, err := gdp.NewGdrivePath(cred.ClientId, cred.ClientSecret, *code, drive.DriveScope, cachefile)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to initialize GdrivePath: %v", err)
-	}
-
-	return g, nil
-}
-
 // Prints error message and program usage to stderr, exit the program.
 func usage(err error) {
-	fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+	}
 	fmt.Fprintf(os.Stderr, "Usage%s:\n", os.Args[0])
 	flag.PrintDefaults()
 	os.Exit(2)
 }
 
-func main() {
-	var dst string
+type GsyncVfs interface {
+	FileTree() ([]string, error)
+	IsDir(string) (bool, error)
+	IsRegular(string) (bool, error)
+	Mkdir(string) error
+	Path() string
+	PathOutdated(string, string) (bool, error)
+	Size(string) (int64, error)
+	WriteToFile(string, io.Reader) error
+}
 
-	flag.Parse()
+func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
+	var (
+		srcdir string
+		dstdir string
+	)
 
-	srcdir, dstdir, err := getSourceDest()
-	if err != nil {
-		usage(err)
-	}
-	// TODO:For now we just remove the g: or gdrive: prefixes dstdir
-	idx := strings.Index(dstdir, ":")
-	if idx != -1 {
-		dstdir = dstdir[idx+1:]
-	}
+	srcdir = srcvfs.Path()
+	dstdir = dstvfs.Path()
 
-	g, err := initGdrive()
+	srctree, err := srcvfs.FileTree()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	lfs, err := localvfs.NewLocalFileSystem(srcdir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, f := range lfs.FileTree() {
-		src := lfs.FullName(f)
-
+	for _, src := range srctree {
 		// If the source path ends in a slash, we'll copy the *contents* of the
 		// source directory to the destination. If it doesn't, we'll create a
 		// directory inside the destination. This matches rsync's behavior
@@ -166,7 +137,7 @@ func main() {
 		// /a/b/c  -> foo = /foo/c/<files>...
 
 		// Default == copy files INTO directory at destination
-		dst = path.Join(dstdir, src[len(srcdir):])
+		dst := path.Join(dstdir, src[len(srcdir):])
 
 		// If source does not end in "/", we create the directory specified
 		// by srcdir as the first level inside the destination.
@@ -179,35 +150,93 @@ func main() {
 			}
 		}
 
-		// If directory, create remote
-		if lfs.IsDir(f) {
+		isdir, err := srcvfs.IsDir(src)
+		if err != nil {
+			log.Fatal(err)
+		}
+		isregular, err := srcvfs.IsRegular(src)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if isdir {
 			fmt.Printf("====> %s\n", src)
 			fmt.Printf("      %s\n", dst)
 
 			// Create destination dir
-			_, err := g.Mkdir(dst)
+			err := dstvfs.Mkdir(dst)
 			if err != nil {
 				log.Fatalln(err)
 			}
-		} else if lfs.IsRegular(f) {
+		} else if isregular {
 			copyStat := "Not copied"
 
 			//fmt.Printf("Attempting to copy [%s] to [%s]\n", src, dst)
-			copyNeeded, err := g.RemotePathOutdated(dst, src)
+			/* TODO
+			copyNeeded, err := dstvfs.PathOutdated(dst, src)
 			if err != nil {
 				log.Fatalln(err)
 			}
 
 			if copyNeeded {
 				copyStat = "Copied"
-				_, err := g.Insert(dst, src)
+				err := dstvfs.Insert(dst, src)
 				if err != nil {
 					log.Fatalln(err)
 				}
 			}
-			fmt.Printf("    %8d %s -> %s [%s]\n", lfs.Size(f), src, dst, copyStat)
+			*/
+			size, err := srcvfs.Size(src)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("    %8d %s -> %s [%s]\n", size, src, dst, copyStat)
 		} else {
 			fmt.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
 		}
+	}
+
+	return nil
+}
+
+func main() {
+	flag.Parse()
+
+	srcdir, dstdir, err := getSourceDest()
+	if err != nil {
+		usage(err)
+	}
+	// TODO:For now we just remove the g: or gdrive: prefixes dstdir
+	idx := strings.Index(dstdir, ":")
+	if idx != -1 {
+		dstdir = dstdir[idx+1:]
+	}
+
+	// Initialize virtual filesystems
+	lfs, err := localvfs.NewLocalFileSystem(srcdir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
+	cred, err := handleCredentials(credfile, *clientId, *clientSecret)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
+	gfs, err := gdrivevfs.NewGdriveFileSystem(dstdir, cred.ClientId, cred.ClientSecret, *code, cachefile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = Sync(lfs, gfs)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
