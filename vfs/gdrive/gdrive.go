@@ -9,6 +9,7 @@ package gdrivevfs
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"code.google.com/p/google-api-go-client/drive/v2"
 	gdp "github.com/marcopaganini/gdrive_path"
@@ -63,6 +64,35 @@ func (gfs *gdriveFileSystem) init() error {
 	return nil
 }
 
+// Returns true if a file/directory exists. False otherwise.
+//
+// Returns:
+//   bool
+//   error
+func (gfs *gdriveFileSystem) FileExists(fullpath string) (bool, error) {
+	_, err := gfs.g.Stat(fullpath)
+	// Only return error on a real error condition. For file not found, return
+	// false, nil. This makes it easier for the caller to test for real errors.
+	if err != nil {
+		if gdp.IsObjectNotFound(err) {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// Return a slice of strings with the full filenames found under 'path' in the
+// Gdrive filesystem
+//
+// Returns:
+//   []string
+//   error
+func (gfs *gdriveFileSystem) FileTree() ([]string, error) {
+	return nil, fmt.Errorf("Not Implemented")
+}
+
 // Returns true if fullpath is a directory. False otherwise.
 //
 // Returns:
@@ -97,12 +127,35 @@ func (gfs *gdriveFileSystem) Mkdir(path string) error {
 	return err
 }
 
+// Return the Gdrive file's Modified Time (mtime) truncated to the nearest
+// second (no nano information).
+//
+// Returns:
+//   int64
+//   error
+func (gfs *gdriveFileSystem) Mtime(fullpath string) (time.Time, error) {
+	driveFile, err := gfs.g.Stat(fullpath)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return gdp.ModifiedDate(driveFile)
+}
+
 // Return the base path for this virtual filesystem.
 //
 // Returns:
 // 	 string
 func (gfs *gdriveFileSystem) Path() string {
 	return gfs.path
+}
+
+// Read data from Gdrive file fullpath into writer.
+//
+// Returns:
+//   int64 - Number of bytes read
+// 	 error
+func (gfs *gdriveFileSystem) ReadFromFile(fullpath string, writer io.Writer) (int64, error) {
+	return gfs.g.Download(fullpath, writer)
 }
 
 // Return the size of fullpath in bytes.
@@ -118,21 +171,11 @@ func (gfs *gdriveFileSystem) Size(fullpath string) (int64, error) {
 	return driveFile.FileSize, nil
 }
 
-// TODO: Implement these
-func (gfs *gdriveFileSystem) WriteToFile(dst string, reader io.Reader) error {
-	return fmt.Errorf("Not implemented")
-}
-
-func (gfs *gdriveFileSystem) PathOutdated(src string, dst string) (bool, error) {
-	return false, fmt.Errorf("Not implemented")
-}
-
-// Return a slice of strings with the full filenames found under 'path' in the
-// Gdrive filesystem
+// Write to Gdrive file fullpath with content from reader
 //
 // Returns:
-//   []string
-//   error
-func (gfs *gdriveFileSystem) FileTree() ([]string, error) {
-	return nil, fmt.Errorf("Not Implemented")
+// 	 error
+func (gfs *gdriveFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
+	_, err := gfs.g.Insert(fullpath, reader)
+	return err
 }

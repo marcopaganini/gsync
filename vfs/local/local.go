@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 )
 
 // Local drive filesystem representation
@@ -56,6 +57,19 @@ func (fs *localFileSystem) init() error {
 	return nil
 }
 
+// Returns true if a file/directory exists. False otherwise.
+//
+// Returns:
+//   bool
+//   error
+func (fs *localFileSystem) FileExists(fullpath string) (bool, error) {
+	_, err := os.Stat(fullpath)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
 // Return a slice containing all files/directories under 'path'
 //
 // Returns:
@@ -91,6 +105,20 @@ func (fs *localFileSystem) IsRegular(fullpath string) (bool, error) {
 	return fi.Mode().IsRegular(), nil
 }
 
+// Return the local file's Modified Time (mtime) truncated to the nearest
+// second (no nano information).
+//
+// Returns:
+//   int64
+//   error
+func (fs *localFileSystem) Mtime(fullpath string) (time.Time, error) {
+	fi, err := os.Stat(fullpath)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return fi.ModTime().Truncate(time.Second), nil
+}
+
 // Return the base path for this virtual filesystem.
 //
 // Returns:
@@ -117,8 +145,8 @@ func (gfs *localFileSystem) WriteToFile(dst string, reader io.Reader) error {
 	return fmt.Errorf("Not implemented")
 }
 
-func (gfs *localFileSystem) PathOutdated(src string, dst string) (bool, error) {
-	return false, fmt.Errorf("Not implemented")
+func (gfs *localFileSystem) ReadFromFile(fullpath string, writer io.Writer) (int64, error) {
+	return 0, fmt.Errorf("Not implemented")
 }
 
 func (gfs *localFileSystem) Mkdir(path string) error {

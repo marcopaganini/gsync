@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/marcopaganini/gsync/vfs/gdrive"
 	"github.com/marcopaganini/gsync/vfs/local"
@@ -105,13 +106,47 @@ func usage(err error) {
 
 type GsyncVfs interface {
 	FileTree() ([]string, error)
+	FileExists(string) (bool, error)
 	IsDir(string) (bool, error)
 	IsRegular(string) (bool, error)
 	Mkdir(string) error
+	Mtime(string) (time.Time, error)
 	Path() string
-	PathOutdated(string, string) (bool, error)
+	ReadFromFile(string, io.Writer) (int64, error)
 	Size(string) (int64, error)
 	WriteToFile(string, io.Reader) error
+}
+
+// Determine if we need to copy the file pointed by srcpath in srcvfs to
+// the file dstpath in dstvfs.
+//
+// Return:
+// 	 bool
+// 	 error
+func needToCopy(srcvfs GsyncVfs, dstvfs GsyncVfs, srcpath string, dstpath string) (bool, error) {
+	// If destination doesn't exist we need to copy
+	exists, err := dstvfs.FileExists(dstpath)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return true, nil
+	}
+
+	// If destination exists, we check mtimes
+	srcMtime, err := srcvfs.Mtime(srcpath)
+	if err != nil {
+		return false, err
+	}
+	dstMtime, err := dstvfs.Mtime(dstpath)
+	if err != nil {
+		return false, err
+	}
+	if srcMtime.After(dstMtime) {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
@@ -159,6 +194,8 @@ func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
 			log.Fatal(err)
 		}
 
+		// Start sync operation
+
 		if isdir {
 			fmt.Printf("====> %s\n", src)
 			fmt.Printf("      %s\n", dst)
@@ -170,22 +207,23 @@ func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
 			}
 		} else if isregular {
 			copyStat := "Not copied"
-
-			//fmt.Printf("Attempting to copy [%s] to [%s]\n", src, dst)
-			/* TODO
-			copyNeeded, err := dstvfs.PathOutdated(dst, src)
+			copyNeeded, err := needToCopy(srcvfs, dstvfs, src, dst)
 			if err != nil {
 				log.Fatalln(err)
 			}
 
 			if copyNeeded {
-				copyStat = "Copied"
-				err := dstvfs.Insert(dst, src)
+				f, err := os.Open(src)
 				if err != nil {
 					log.Fatalln(err)
 				}
+				err = dstvfs.WriteToFile(dst, f)
+				if err != nil {
+					log.Fatalln(err)
+				}
+				copyStat = "Copied"
 			}
-			*/
+			// Print details
 			size, err := srcvfs.Size(src)
 			if err != nil {
 				log.Fatal(err)
