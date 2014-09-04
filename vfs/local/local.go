@@ -105,6 +105,15 @@ func (fs *localFileSystem) IsRegular(fullpath string) (bool, error) {
 	return fi.Mode().IsRegular(), nil
 }
 
+// Create a local directory named 'path'
+//
+// Returns
+//   error
+func (fs *localFileSystem) Mkdir(path string) error {
+	err := os.Mkdir(path, 0644)
+	return err
+}
+
 // Return the local file's Modified Time (mtime) truncated to the nearest
 // second (no nano information).
 //
@@ -147,8 +156,4 @@ func (gfs *localFileSystem) WriteToFile(dst string, reader io.Reader) error {
 
 func (gfs *localFileSystem) ReadFromFile(fullpath string, writer io.Writer) (int64, error) {
 	return 0, fmt.Errorf("Not implemented")
-}
-
-func (gfs *localFileSystem) Mkdir(path string) error {
-	return fmt.Errorf("Not implemented")
 }
