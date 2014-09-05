@@ -51,10 +51,13 @@ func getSourceDest() (string, string, error) {
 	src := flag.Arg(0)
 	dst := flag.Arg(1)
 
-	// Only supports copies *to* Google Drive for now
-	if strings.HasPrefix(src, "g:") || strings.HasPrefix(src, "gdrive:") ||
-		!(strings.HasPrefix(dst, "g:") || strings.HasPrefix(dst, "gdrive:")) {
-		return "", "", fmt.Errorf("Temporarily, only copies to Google Drive are supported")
+	// Only supports copies from local to Gdrive or vice versa.
+	// Local->Local and Remote->Remote are not supported.
+	srcGdrive, _ := isGdrivePath(src)
+	dstGdrive, _ := isGdrivePath(dst)
+
+	if (srcGdrive && dstGdrive) || (!srcGdrive && !dstGdrive) {
+		return "", "", fmt.Errorf("Local/Local and Remote/Remote copies not supported.")
 	}
 	return src, dst, nil
 }
@@ -112,9 +115,24 @@ type GsyncVfs interface {
 	Mkdir(string) error
 	Mtime(string) (time.Time, error)
 	Path() string
-	ReadFromFile(string, io.Writer) (int64, error)
+	ReadFromFile(string) (io.Reader, error)
 	Size(string) (int64, error)
 	WriteToFile(string, io.Reader) error
+}
+
+// Check if fullpath looks like a gdrive path (starting with g: or gdrive:). If
+// so, return true and the path without the prefix. Otherwise, return false and
+// the path itself.
+//
+// Returns
+//   bool
+//   realpath
+func isGdrivePath(fullpath string) (bool, string) {
+	if strings.HasPrefix(fullpath, "g:") || strings.HasPrefix(fullpath, "gdrive:") {
+		idx := strings.Index(fullpath, ":")
+		return true, fullpath[idx+1:]
+	}
+	return false, fullpath
 }
 
 // Determine if we need to copy the file pointed by srcpath in srcvfs to
@@ -213,11 +231,11 @@ func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
 			}
 
 			if copyNeeded {
-				f, err := os.Open(src)
+				r, err := srcvfs.ReadFromFile(src)
 				if err != nil {
 					log.Fatalln(err)
 				}
-				err = dstvfs.WriteToFile(dst, f)
+				err = dstvfs.WriteToFile(dst, r)
 				if err != nil {
 					log.Fatalln(err)
 				}
@@ -238,42 +256,56 @@ func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
 }
 
 func main() {
+	var (
+		srcvfs GsyncVfs
+		dstvfs GsyncVfs
+	)
+
 	flag.Parse()
 
 	srcdir, dstdir, err := getSourceDest()
 	if err != nil {
 		usage(err)
 	}
-	// TODO:For now we just remove the g: or gdrive: prefixes dstdir
-	idx := strings.Index(dstdir, ":")
-	if idx != -1 {
-		dstdir = dstdir[idx+1:]
-	}
 
-	// Initialize virtual filesystems
-	lfs, err := localvfs.NewLocalFileSystem(srcdir)
-	if err != nil {
-		log.Fatal(err)
-	}
+	srcGdrive, srcPath := isGdrivePath(srcdir)
+	_, dstPath := isGdrivePath(dstdir)
 
+	// Credentials and cache file
 	usr, err := user.Current()
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
 	cred, err := handleCredentials(credfile, *clientId, *clientSecret)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
-	gfs, err := gdrivevfs.NewGdriveFileSystem(dstdir, cred.ClientId, cred.ClientSecret, *code, cachefile)
-	if err != nil {
-		log.Fatal(err)
+
+	// Initialize virtual filesystems
+	if srcGdrive {
+		srcvfs, err = gdrivevfs.NewGdriveFileSystem(srcPath, cred.ClientId, cred.ClientSecret, *code, cachefile)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		dstvfs, err = localvfs.NewLocalFileSystem(dstPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		srcvfs, err = localvfs.NewLocalFileSystem(srcPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		dstvfs, err = gdrivevfs.NewGdriveFileSystem(dstPath, cred.ClientId, cred.ClientSecret, *code, cachefile)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	err = Sync(lfs, gfs)
+	err = Sync(srcvfs, dstvfs)
 	if err != nil {
 		log.Fatal(err)
 	}

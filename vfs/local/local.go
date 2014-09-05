@@ -9,6 +9,7 @@ package localvfs
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -136,6 +137,15 @@ func (fs *localFileSystem) Path() string {
 	return fs.path
 }
 
+// Return an io.Reader pointing to fullpath in the local filesystem.
+//
+// Returns:
+//   io.Reader
+//   error
+func (gfs *localFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
+	return os.Open(fullpath)
+}
+
 // Return the size of fullpath, in bytes
 //
 // Returns:
@@ -149,11 +159,45 @@ func (fs *localFileSystem) Size(fullpath string) (int64, error) {
 	return fi.Size(), nil
 }
 
-// TODO: Implement these
-func (gfs *localFileSystem) WriteToFile(dst string, reader io.Reader) error {
-	return fmt.Errorf("Not implemented")
-}
+// Read all data from reader and write to file fullpath
+//
+// Returns:
+//   error
+func (gfs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
+	dir := filepath.Dir(fullpath)
+	name := filepath.Base(fullpath)
 
-func (gfs *localFileSystem) ReadFromFile(fullpath string, writer io.Writer) (int64, error) {
-	return 0, fmt.Errorf("Not implemented")
+	if name == "" {
+		return fmt.Errorf("Trying to write to empty name")
+	}
+
+	// If the file exists, it must be a regular file
+	fi, err := os.Stat(fullpath)
+	if err != nil {
+		if os.IsExist(err) && !fi.Mode().IsRegular() {
+			return fmt.Errorf("Local path \"%s\" exists and is not a regular file", fullpath)
+		}
+	}
+
+	// Create a temporary file and write to it, renaming at the end.
+	tmpWriter, err := ioutil.TempFile(dir, name)
+	if err != nil {
+		return err
+	}
+	tmpFile := tmpWriter.Name()
+	defer tmpWriter.Close()
+	defer os.Remove(tmpFile)
+
+	_, err = io.Copy(tmpWriter, reader)
+	if err != nil {
+		return err
+	}
+	tmpWriter.Close()
+
+	err = os.Rename(tmpFile, fullpath)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -28,7 +28,7 @@ type gdriveFileSystem struct {
 	clientSecret string
 	cachefile    string
 	code         string
-	fileList     []*gdriveFile
+	fileList     []string
 }
 
 // Create a new GdriveFileSystem object
@@ -149,13 +149,13 @@ func (gfs *gdriveFileSystem) Path() string {
 	return gfs.path
 }
 
-// Read data from Gdrive file fullpath into writer.
+// Return an io.Reader pointing to fullpath inside Google Drive.
 //
 // Returns:
-//   int64 - Number of bytes read
+//   io.Reader
 // 	 error
-func (gfs *gdriveFileSystem) ReadFromFile(fullpath string, writer io.Writer) (int64, error) {
-	return gfs.g.Download(fullpath, writer)
+func (gfs *gdriveFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
+	return gfs.g.Download(fullpath)
 }
 
 // Return the size of fullpath in bytes.
