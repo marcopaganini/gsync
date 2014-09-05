@@ -37,6 +37,20 @@ type GdriveCredentials struct {
 	ClientSecret string
 }
 
+// VFS interface
+type gsyncVfs interface {
+	FileTree() ([]string, error)
+	FileExists(string) (bool, error)
+	IsDir(string) (bool, error)
+	IsRegular(string) (bool, error)
+	Mkdir(string) error
+	Mtime(string) (time.Time, error)
+	Path() string
+	ReadFromFile(string) (io.Reader, error)
+	Size(string) (int64, error)
+	WriteToFile(string, io.Reader) error
+}
+
 // Retrieve the source and destination from the command-line, performing basic sanity checking
 //
 // Returns:
@@ -107,19 +121,6 @@ func usage(err error) {
 	os.Exit(2)
 }
 
-type GsyncVfs interface {
-	FileTree() ([]string, error)
-	FileExists(string) (bool, error)
-	IsDir(string) (bool, error)
-	IsRegular(string) (bool, error)
-	Mkdir(string) error
-	Mtime(string) (time.Time, error)
-	Path() string
-	ReadFromFile(string) (io.Reader, error)
-	Size(string) (int64, error)
-	WriteToFile(string, io.Reader) error
-}
-
 // Check if fullpath looks like a gdrive path (starting with g: or gdrive:). If
 // so, return true and the path without the prefix. Otherwise, return false and
 // the path itself.
@@ -141,7 +142,7 @@ func isGdrivePath(fullpath string) (bool, string) {
 // Return:
 // 	 bool
 // 	 error
-func needToCopy(srcvfs GsyncVfs, dstvfs GsyncVfs, srcpath string, dstpath string) (bool, error) {
+func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string) (bool, error) {
 	// If destination doesn't exist we need to copy
 	exists, err := dstvfs.FileExists(dstpath)
 	if err != nil {
@@ -167,7 +168,7 @@ func needToCopy(srcvfs GsyncVfs, dstvfs GsyncVfs, srcpath string, dstpath string
 	return false, nil
 }
 
-func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
+func Sync(srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 	var (
 		srcdir string
 		dstdir string
@@ -257,8 +258,8 @@ func Sync(srcvfs GsyncVfs, dstvfs GsyncVfs) error {
 
 func main() {
 	var (
-		srcvfs GsyncVfs
-		dstvfs GsyncVfs
+		srcvfs gsyncVfs
+		dstvfs gsyncVfs
 	)
 
 	flag.Parse()
