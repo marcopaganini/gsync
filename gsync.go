@@ -219,10 +219,16 @@ func Sync(srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 			fmt.Printf("====> %s\n", src)
 			fmt.Printf("      %s\n", dst)
 
-			// Create destination dir
-			err := dstvfs.Mkdir(dst)
+			// Create destination dir if needed
+			exists, err := dstvfs.FileExists(dst)
 			if err != nil {
 				log.Fatalln(err)
+			}
+			if !exists {
+				err := dstvfs.Mkdir(dst)
+				if err != nil {
+					log.Fatalln(err)
+				}
 			}
 		} else if isregular {
 			copyStat := "Not copied"

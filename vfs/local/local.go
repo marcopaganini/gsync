@@ -111,7 +111,7 @@ func (fs *localFileSystem) IsRegular(fullpath string) (bool, error) {
 // Returns
 //   error
 func (fs *localFileSystem) Mkdir(path string) error {
-	err := os.Mkdir(path, 0644)
+	err := os.Mkdir(path, 0755)
 	return err
 }
 

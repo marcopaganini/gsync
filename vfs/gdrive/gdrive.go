@@ -9,6 +9,10 @@ package gdrivevfs
 import (
 	"fmt"
 	"io"
+	"path/filepath"
+	"sort"
+	"strings"
+
 	"time"
 
 	"code.google.com/p/google-api-go-client/drive/v2"
@@ -28,7 +32,7 @@ type gdriveFileSystem struct {
 	clientSecret string
 	cachefile    string
 	code         string
-	fileList     []string
+	fileSlice    []string
 }
 
 // Create a new GdriveFileSystem object
@@ -90,7 +94,39 @@ func (gfs *gdriveFileSystem) FileExists(fullpath string) (bool, error) {
 //   []string
 //   error
 func (gfs *gdriveFileSystem) FileTree() ([]string, error) {
-	return nil, fmt.Errorf("Not Implemented")
+	// sanitize
+	_, _, pathname := splitPath(gfs.path)
+
+	// We iterate over all objects inside 'pathname'. If they're a
+	// directory, we append them to dirs. The loop below will finish
+	// when no more directories to be processed exist.
+
+	dirs := []string{pathname}
+	idx := 0
+
+	for idx < len(dirs) {
+		dir := dirs[idx]
+
+		flist, err := gfs.g.ListDir(dir, "")
+		if err != nil {
+			return nil, err
+		}
+
+		for _, driveFile := range flist {
+			fullpath := filepath.Join(dir, driveFile.Title)
+			gfs.fileSlice = append(gfs.fileSlice, fullpath)
+			// Append to the list of dirs to process if directory
+			if gdp.IsDir(driveFile) {
+				dirs = append(dirs, fullpath)
+			}
+		}
+		idx++
+	}
+
+	// Create sorted list so dirs appear before files inside them.
+	sort.Strings(gfs.fileSlice)
+	return gfs.fileSlice, nil
+
 }
 
 // Returns true if fullpath is a directory. False otherwise.
@@ -178,4 +214,28 @@ func (gfs *gdriveFileSystem) Size(fullpath string) (int64, error) {
 func (gfs *gdriveFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
 	_, err := gfs.g.Insert(fullpath, reader)
 	return err
+}
+
+// splitPath takes a Unix like pathname, splits it on its components, and
+// remove empty elements and unnecessary leading and trailing slashes.
+//
+// Returns:
+//   - string: directory
+//   - string: filename
+//   - string: completely reconstructed path.
+func splitPath(pathName string) (string, string, string) {
+	var ret []string
+
+	for _, e := range strings.Split(pathName, "/") {
+		if e != "" {
+			ret = append(ret, e)
+		}
+	}
+	if len(ret) == 0 {
+		return "", "", ""
+	}
+	if len(ret) == 1 {
+		return "", ret[0], ret[0]
+	}
+	return strings.Join(ret[0:len(ret)-1], "/"), ret[len(ret)-1], strings.Join(ret, "/")
 }
