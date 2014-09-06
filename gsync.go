@@ -266,6 +266,8 @@ func main() {
 	var (
 		srcvfs gsyncVfs
 		dstvfs gsyncVfs
+		gpath  string
+		lpath  string
 	)
 
 	flag.Parse()
@@ -292,24 +294,20 @@ func main() {
 
 	// Initialize virtual filesystems
 	if srcGdrive {
-		srcvfs, err = gdrivevfs.NewGdriveFileSystem(srcPath, cred.ClientId, cred.ClientSecret, *code, cachefile)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		dstvfs, err = localvfs.NewLocalFileSystem(dstPath)
-		if err != nil {
-			log.Fatal(err)
-		}
+		gpath = srcPath
+		lpath = dstPath
 	} else {
-		srcvfs, err = localvfs.NewLocalFileSystem(srcPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		dstvfs, err = gdrivevfs.NewGdriveFileSystem(dstPath, cred.ClientId, cred.ClientSecret, *code, cachefile)
-		if err != nil {
-			log.Fatal(err)
-		}
+		lpath = srcPath
+		gpath = dstPath
+	}
+
+	srcvfs, err = gdrivevfs.NewGdriveFileSystem(gpath, cred.ClientId, cred.ClientSecret, *code, cachefile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	dstvfs, err = localvfs.NewLocalFileSystem(lpath)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	err = Sync(srcvfs, dstvfs)
