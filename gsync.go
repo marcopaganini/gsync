@@ -24,6 +24,9 @@ import (
 const (
 	AUTH_CACHE_FILE  = ".gsync-token-cache.json"
 	CREDENTIALS_FILE = ".gsync-credentials.json"
+
+	// Flag defaults
+	DEFAULT_OPT_VERBOSE = false
 )
 
 var (
@@ -31,6 +34,7 @@ var (
 	optClientId     string
 	optClientSecret string
 	optCode         string
+	optVerbose      bool
 )
 
 type GdriveCredentials struct {
@@ -182,6 +186,7 @@ func Sync(srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	for _, src := range srctree {
 		// If the source path ends in a slash, we'll copy the *contents* of the
 		// source directory to the destination. If it doesn't, we'll create a
@@ -217,22 +222,22 @@ func Sync(srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 		// Start sync operation
 
 		if isdir {
-			fmt.Printf("====> %s\n", src)
-			fmt.Printf("      %s\n", dst)
-
 			// Create destination dir if needed
 			exists, err := dstvfs.FileExists(dst)
 			if err != nil {
 				log.Fatalln(err)
 			}
 			if !exists {
+				if optVerbose {
+					fmt.Println(dst)
+				}
+
 				err := dstvfs.Mkdir(dst)
 				if err != nil {
 					log.Fatalln(err)
 				}
 			}
 		} else if isregular {
-			copyStat := "Not copied"
 			copyNeeded, err := needToCopy(srcvfs, dstvfs, src, dst)
 			if err != nil {
 				log.Fatalln(err)
@@ -247,14 +252,10 @@ func Sync(srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 				if err != nil {
 					log.Fatalln(err)
 				}
-				copyStat = "Copied"
+				if optVerbose {
+					fmt.Println(dst)
+				}
 			}
-			// Print details
-			size, err := srcvfs.Size(src)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Printf("    %8d %s -> %s [%s]\n", size, src, dst, copyStat)
 		} else {
 			fmt.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
 		}
@@ -267,14 +268,14 @@ func main() {
 	var (
 		srcvfs gsyncVfs
 		dstvfs gsyncVfs
-		gpath  string
-		lpath  string
 	)
 
 	// Parse command line
 	flag.StringVar(&optClientId, "id", "", "Client ID")
 	flag.StringVar(&optClientSecret, "secret", "", "Client Secret")
 	flag.StringVar(&optCode, "code", "", "Authorization Code")
+	flag.BoolVar(&optVerbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
+	flag.BoolVar(&optVerbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
 	flag.Parse()
 
 	srcdir, dstdir, err := getSourceDest()
@@ -283,7 +284,7 @@ func main() {
 	}
 
 	srcGdrive, srcPath := isGdrivePath(srcdir)
-	_, dstPath := isGdrivePath(dstdir)
+	dstGdrive, dstPath := isGdrivePath(dstdir)
 
 	// Credentials and cache file
 	usr, err := user.Current()
@@ -299,22 +300,24 @@ func main() {
 
 	// Initialize virtual filesystems
 	if srcGdrive {
-		gpath = srcPath
-		lpath = dstPath
+		srcvfs, err = gdrivevfs.NewGdriveFileSystem(srcPath, cred.ClientId, cred.ClientSecret, optCode, cachefile)
 	} else {
-		lpath = srcPath
-		gpath = dstPath
+		srcvfs, err = localvfs.NewLocalFileSystem(srcPath)
 	}
-
-	srcvfs, err = gdrivevfs.NewGdriveFileSystem(gpath, cred.ClientId, cred.ClientSecret, optCode, cachefile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	dstvfs, err = localvfs.NewLocalFileSystem(lpath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	if dstGdrive {
+		dstvfs, err = gdrivevfs.NewGdriveFileSystem(dstPath, cred.ClientId, cred.ClientSecret, optCode, cachefile)
+	} else {
+		dstvfs, err = localvfs.NewLocalFileSystem(dstPath)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Sync
 	err = Sync(srcvfs, dstvfs)
 	if err != nil {
 		log.Fatal(err)
