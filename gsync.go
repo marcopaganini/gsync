@@ -27,9 +27,10 @@ const (
 )
 
 var (
-	clientId     = flag.String("id", "", "Client ID")
-	clientSecret = flag.String("secret", "", "Client Secret")
-	code         = flag.String("code", "", "Authorization Code")
+	// Command line Flags
+	optClientId     string
+	optClientSecret string
+	optCode         string
 )
 
 type GdriveCredentials struct {
@@ -270,6 +271,10 @@ func main() {
 		lpath  string
 	)
 
+	// Parse command line
+	flag.StringVar(&optClientId, "id", "", "Client ID")
+	flag.StringVar(&optClientSecret, "secret", "", "Client Secret")
+	flag.StringVar(&optCode, "code", "", "Authorization Code")
 	flag.Parse()
 
 	srcdir, dstdir, err := getSourceDest()
@@ -286,7 +291,7 @@ func main() {
 		log.Fatal(err)
 	}
 	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
-	cred, err := handleCredentials(credfile, *clientId, *clientSecret)
+	cred, err := handleCredentials(credfile, optClientId, optClientSecret)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -301,7 +306,7 @@ func main() {
 		gpath = dstPath
 	}
 
-	srcvfs, err = gdrivevfs.NewGdriveFileSystem(gpath, cred.ClientId, cred.ClientSecret, *code, cachefile)
+	srcvfs, err = gdrivevfs.NewGdriveFileSystem(gpath, cred.ClientId, cred.ClientSecret, optCode, cachefile)
 	if err != nil {
 		log.Fatal(err)
 	}
