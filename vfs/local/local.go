@@ -18,9 +18,6 @@ import (
 
 // Local drive filesystem representation
 type localFileSystem struct {
-	path      string
-	pathMap   map[string]bool
-	pathSlice []string
 }
 
 // Create a new localFileSystem object
@@ -28,34 +25,9 @@ type localFileSystem struct {
 // Returns:
 //   *localFileSystem
 //   error
-func NewLocalFileSystem(path string) (*localFileSystem, error) {
-	fs := &localFileSystem{path: path}
-	err := fs.init()
-	return fs, err
-}
-
-// Initialize a localFileSystem object, loading the entire file tree under fs.path
-//
-// Returns:
-//   error
-func (fs *localFileSystem) init() error {
-	fs.pathMap = make(map[string]bool)
-	err := filepath.Walk(fs.path, func(srcpath string, _ os.FileInfo, err error) error {
-		fs.pathMap[srcpath] = true
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	// Create sorted list
-	fs.pathSlice = []string{}
-	for k, _ := range fs.pathMap {
-		fs.pathSlice = append(fs.pathSlice, k)
-	}
-	sort.Strings(fs.pathSlice)
-
-	return nil
+func NewLocalFileSystem() *localFileSystem {
+	fs := &localFileSystem{}
+	return fs
 }
 
 // Returns true if a file/directory exists. False otherwise.
@@ -71,13 +43,29 @@ func (fs *localFileSystem) FileExists(fullpath string) (bool, error) {
 	return true, nil
 }
 
-// Return a slice containing all files/directories under 'path'
+// Return a slice containing all files/directories under fullpath
 //
 // Returns:
 //   []string - slice of full pathnames
 //   error
-func (fs *localFileSystem) FileTree() ([]string, error) {
-	return fs.pathSlice, nil
+func (fs *localFileSystem) FileTree(fullpath string) ([]string, error) {
+	// Use a map so duplicates are removed automatically
+	pathMap := make(map[string]bool)
+	err := filepath.Walk(fullpath, func(srcpath string, _ os.FileInfo, err error) error {
+		pathMap[srcpath] = true
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Create sorted list
+	pathSlice := []string{}
+	for k, _ := range pathMap {
+		pathSlice = append(pathSlice, k)
+	}
+	sort.Strings(pathSlice)
+	return pathSlice, nil
 }
 
 // Return true if fullpath is a directory, false otherwise.
@@ -127,14 +115,6 @@ func (fs *localFileSystem) Mtime(fullpath string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return fi.ModTime().Truncate(time.Second), nil
-}
-
-// Return the base path for this virtual filesystem.
-//
-// Returns:
-// 	 string
-func (fs *localFileSystem) Path() string {
-	return fs.path
 }
 
 // Return an io.Reader pointing to fullpath in the local filesystem.

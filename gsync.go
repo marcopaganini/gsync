@@ -44,13 +44,12 @@ type GdriveCredentials struct {
 
 // VFS interface
 type gsyncVfs interface {
-	FileTree() ([]string, error)
+	FileTree(string) ([]string, error)
 	FileExists(string) (bool, error)
 	IsDir(string) (bool, error)
 	IsRegular(string) (bool, error)
 	Mkdir(string) error
 	Mtime(string) (time.Time, error)
-	Path() string
 	ReadFromFile(string) (io.Reader, error)
 	Size(string) (int64, error)
 	WriteToFile(string, io.Reader) error
@@ -173,16 +172,8 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 	return false, nil
 }
 
-func Sync(srcvfs gsyncVfs, dstvfs gsyncVfs) error {
-	var (
-		srcdir string
-		dstdir string
-	)
-
-	srcdir = srcvfs.Path()
-	dstdir = dstvfs.Path()
-
-	srctree, err := srcvfs.FileTree()
+func Sync(srcdir string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
+	srctree, err := srcvfs.FileTree(srcdir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -268,6 +259,8 @@ func main() {
 	var (
 		srcvfs gsyncVfs
 		dstvfs gsyncVfs
+		gfs    gsyncVfs
+		lfs    gsyncVfs
 	)
 
 	// Parse command line
@@ -284,7 +277,7 @@ func main() {
 	}
 
 	srcGdrive, srcPath := isGdrivePath(srcdir)
-	dstGdrive, dstPath := isGdrivePath(dstdir)
+	_, dstPath := isGdrivePath(dstdir)
 
 	// Credentials and cache file
 	usr, err := user.Current()
@@ -299,26 +292,22 @@ func main() {
 	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
 
 	// Initialize virtual filesystems
-	if srcGdrive {
-		srcvfs, err = gdrivevfs.NewGdriveFileSystem(srcPath, cred.ClientId, cred.ClientSecret, optCode, cachefile)
-	} else {
-		srcvfs, err = localvfs.NewLocalFileSystem(srcPath)
-	}
+	gfs, err = gdrivevfs.NewGdriveFileSystem(cred.ClientId, cred.ClientSecret, optCode, cachefile)
 	if err != nil {
 		log.Fatal(err)
 	}
+	lfs = localvfs.NewLocalFileSystem()
 
-	if dstGdrive {
-		dstvfs, err = gdrivevfs.NewGdriveFileSystem(dstPath, cred.ClientId, cred.ClientSecret, optCode, cachefile)
+	if srcGdrive {
+		srcvfs = gfs
+		dstvfs = lfs
 	} else {
-		dstvfs, err = localvfs.NewLocalFileSystem(dstPath)
-	}
-	if err != nil {
-		log.Fatal(err)
+		srcvfs = lfs
+		dstvfs = gfs
 	}
 
 	// Sync
-	err = Sync(srcvfs, dstvfs)
+	err = Sync(srcPath, dstPath, srcvfs, dstvfs)
 	if err != nil {
 		log.Fatal(err)
 	}

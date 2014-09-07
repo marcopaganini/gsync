@@ -19,15 +19,9 @@ import (
 	gdp "github.com/marcopaganini/gdrive_path"
 )
 
-type gdriveFile struct {
-	path      string
-	driveFile *drive.File
-}
-
 // Gdrive filesystem representation
 type gdriveFileSystem struct {
 	g            *gdp.Gdrive
-	path         string
 	clientId     string
 	clientSecret string
 	cachefile    string
@@ -40,9 +34,8 @@ type gdriveFileSystem struct {
 // Returns:
 //   *GdriveFileSystem
 //   error
-func NewGdriveFileSystem(path string, clientId string, clientSecret string, code string, cachefile string) (*gdriveFileSystem, error) {
+func NewGdriveFileSystem(clientId string, clientSecret string, code string, cachefile string) (*gdriveFileSystem, error) {
 	gfs := &gdriveFileSystem{
-		path:         path,
 		clientId:     clientId,
 		clientSecret: clientSecret,
 		code:         code,
@@ -87,15 +80,15 @@ func (gfs *gdriveFileSystem) FileExists(fullpath string) (bool, error) {
 	return true, nil
 }
 
-// Return a slice of strings with the full filenames found under 'path' in the
-// Gdrive filesystem
+// Return a slice of strings with the full filenames found on Google drive
+// under 'fullpath'
 //
 // Returns:
 //   []string
 //   error
-func (gfs *gdriveFileSystem) FileTree() ([]string, error) {
+func (gfs *gdriveFileSystem) FileTree(fullpath string) ([]string, error) {
 	// sanitize
-	_, _, pathname := splitPath(gfs.path)
+	_, _, pathname := splitPath(fullpath)
 
 	// We iterate over all objects inside 'pathname'. If they're a
 	// directory, we append them to dirs. The loop below will finish
@@ -175,14 +168,6 @@ func (gfs *gdriveFileSystem) Mtime(fullpath string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return gdp.ModifiedDate(driveFile)
-}
-
-// Return the base path for this virtual filesystem.
-//
-// Returns:
-// 	 string
-func (gfs *gdriveFileSystem) Path() string {
-	return gfs.path
 }
 
 // Return an io.Reader pointing to fullpath inside Google Drive.
