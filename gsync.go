@@ -55,29 +55,26 @@ type gsyncVfs interface {
 	WriteToFile(string, io.Reader) error
 }
 
-// Retrieve the source and destination from the command-line, performing basic sanity checking
+// Retrieve the sources and destination from the command-line, performing basic sanity checking.
 //
 // Returns:
-// 	string: source directory
+// 	[]string: source paths
 // 	string: destination directory
 // 	error
-func getSourceDest() (string, string, error) {
-	if flag.NArg() != 2 {
-		return "", "", fmt.Errorf("Must specify source and destination directories")
+func getSourceDest() ([]string, string, error) {
+	var srcpaths []string
+
+	if flag.NArg() < 2 {
+		return nil, "", fmt.Errorf("Must specify source and destination directories")
 	}
 
-	src := flag.Arg(0)
-	dst := flag.Arg(1)
-
-	// Only supports copies from local to Gdrive or vice versa.
-	// Local->Local and Remote->Remote are not supported.
-	srcGdrive, _ := isGdrivePath(src)
-	dstGdrive, _ := isGdrivePath(dst)
-
-	if (srcGdrive && dstGdrive) || (!srcGdrive && !dstGdrive) {
-		return "", "", fmt.Errorf("Local/Local and Remote/Remote copies not supported.")
+	// All arguments but last are considered to be sources
+	for ix := 0; ix < flag.NArg()-1; ix++ {
+		srcpaths = append(srcpaths, flag.Arg(ix))
 	}
-	return src, dst, nil
+	dst := flag.Arg(flag.NArg() - 1)
+
+	return srcpaths, dst, nil
 }
 
 // Save and/or load credentials from disk.
@@ -202,9 +199,38 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 }
 
 func Sync(srcdir string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
-	srctree, err := srcvfs.FileTree(srcdir)
+	var srctree []string
+
+	// Destination must exist and be a directory
+	exists, err := dstvfs.FileExists(dstdir)
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("Destination \"%s\" does not exist", dstdir)
+	}
+
+	isdir, err := dstvfs.IsDir(dstdir)
+	if err != nil {
+		return err
+	}
+	if !isdir {
+		return fmt.Errorf("Destination \"%s\" is not a directory/folder", dstdir)
+	}
+
+	// Special case: If the source path is not a directory, we short circuit
+	// the FileTree method here and set srctree to that single file.
+	isdir, err = srcvfs.IsDir(srcdir)
+	if err != nil {
+		return err
+	}
+	if isdir {
+		srctree, err = srcvfs.FileTree(srcdir)
+		if err != nil {
+			return err
+		}
+	} else {
+		srctree = []string{srcdir}
 	}
 
 	for _, src := range srctree {
@@ -286,10 +312,13 @@ func Sync(srcdir string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error 
 
 func main() {
 	var (
-		srcvfs gsyncVfs
-		dstvfs gsyncVfs
-		gfs    gsyncVfs
-		lfs    gsyncVfs
+		srcvfs   gsyncVfs
+		dstvfs   gsyncVfs
+		gfs      gsyncVfs
+		lfs      gsyncVfs
+		srcdir   string
+		dstdir   string
+		srcpaths []string
 	)
 
 	// Parse command line
@@ -300,13 +329,10 @@ func main() {
 	flag.BoolVar(&optVerbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
 	flag.Parse()
 
-	srcdir, dstdir, err := getSourceDest()
+	srcpaths, dstdir, err := getSourceDest()
 	if err != nil {
 		usage(err)
 	}
-
-	srcGdrive, srcPath := isGdrivePath(srcdir)
-	_, dstPath := isGdrivePath(dstdir)
 
 	// Initialize virtual filesystems
 	gfs, err = initGdriveVfs(optClientId, optClientSecret, optCode)
@@ -314,18 +340,26 @@ func main() {
 		log.Fatal(err)
 	}
 	lfs = localvfs.NewLocalFileSystem()
-
-	if srcGdrive {
-		srcvfs = gfs
-		dstvfs = lfs
-	} else {
-		srcvfs = lfs
+	dstvfs = lfs
+	isDstGdrive, dstPath := isGdrivePath(dstdir)
+	if isDstGdrive {
 		dstvfs = gfs
 	}
 
-	// Sync
-	err = Sync(srcPath, dstPath, srcvfs, dstvfs)
-	if err != nil {
-		log.Fatal(err)
+	// Treat each path separately
+	for _, srcdir = range srcpaths {
+		isSrcGdrive, srcPath := isGdrivePath(srcdir)
+
+		// Select VFSes according to path type
+		srcvfs = lfs
+		if isSrcGdrive {
+			srcvfs = gfs
+		}
+
+		// Sync
+		err = Sync(srcPath, dstPath, srcvfs, dstvfs)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
