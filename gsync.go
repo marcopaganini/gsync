@@ -115,6 +115,35 @@ func handleCredentials(credFile string, clientId string, clientSecret string) (*
 	return cred, nil
 }
 
+// Initializes a new GdriveVFS instance. This is a helper wrapper to gdrivefs.NewGdriveFileSystem.
+// This function calls handleCredentials to load/save the token and act on the Oauth code, if needed.
+//
+// Returns:
+//   gsyncVfs
+//   error
+func initGdriveVfs(clientId string, clientSecret string, code string) (gsyncVfs, error) {
+	// Credentials and cache file
+	usr, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
+	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
+
+	// Load/save credentials
+	cred, err := handleCredentials(credfile, clientId, clientSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize virtual filesystems
+	g, err := gdrivevfs.NewGdriveFileSystem(cred.ClientId, cred.ClientSecret, optCode, cachefile)
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
 // Prints error message and program usage to stderr, exit the program.
 func usage(err error) {
 	if err != nil {
@@ -279,20 +308,8 @@ func main() {
 	srcGdrive, srcPath := isGdrivePath(srcdir)
 	_, dstPath := isGdrivePath(dstdir)
 
-	// Credentials and cache file
-	usr, err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-	}
-	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
-	cred, err := handleCredentials(credfile, optClientId, optClientSecret)
-	if err != nil {
-		log.Fatal(err)
-	}
-	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
-
 	// Initialize virtual filesystems
-	gfs, err = gdrivevfs.NewGdriveFileSystem(cred.ClientId, cred.ClientSecret, optCode, cachefile)
+	gfs, err = initGdriveVfs(optClientId, optClientSecret, optCode)
 	if err != nil {
 		log.Fatal(err)
 	}
