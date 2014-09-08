@@ -198,6 +198,20 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 	return false, nil
 }
 
+// Copy the content of all files/directories pointed by srcpath into dstdir.
+// If srcpath is a file, the file will be copied. If it is a directory, the
+// entire subtree will be copied.  Dstdir must be a directory.
+//
+// Like rsync, a source path ending in slash means "copy the contents of this
+// directory into the destination" whereas a path not ending in a slash means
+// "copy this directory and its contents into the destination."
+//
+// Files/directories are only copied if needed (based on the modification date
+// of the file on both filesystems.) This function uses the srcvfs and dstvfs
+// VFS objects to perform operations on the respective filesystems.
+//
+// Return:
+// 	 error
 func Sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 	var srctree []string
 
