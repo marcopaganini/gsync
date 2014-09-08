@@ -198,7 +198,7 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 	return false, nil
 }
 
-func Sync(srcdir string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
+func Sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 	var srctree []string
 
 	// Destination must exist and be a directory
@@ -220,17 +220,17 @@ func Sync(srcdir string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error 
 
 	// Special case: If the source path is not a directory, we short circuit
 	// the FileTree method here and set srctree to that single file.
-	isdir, err = srcvfs.IsDir(srcdir)
+	isdir, err = srcvfs.IsDir(srcpath)
 	if err != nil {
 		return err
 	}
 	if isdir {
-		srctree, err = srcvfs.FileTree(srcdir)
+		srctree, err = srcvfs.FileTree(srcpath)
 		if err != nil {
 			return err
 		}
 	} else {
-		srctree = []string{srcdir}
+		srctree = []string{srcpath}
 	}
 
 	for _, src := range srctree {
@@ -243,12 +243,12 @@ func Sync(srcdir string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error 
 		// /a/b/c  -> foo = /foo/c/<files>...
 
 		// Default == copy files INTO directory at destination
-		dst := path.Join(dstdir, src[len(srcdir):])
+		dst := path.Join(dstdir, src[len(srcpath):])
 
 		// If source does not end in "/", we create the directory specified
-		// by srcdir as the first level inside the destination.
-		if !strings.HasSuffix(srcdir, "/") {
-			sdir := strings.Split(srcdir, "/")
+		// by srcpath as the first level inside the destination.
+		if !strings.HasSuffix(srcpath, "/") {
+			sdir := strings.Split(srcpath, "/")
 			if len(sdir) > 1 {
 				last := len(sdir) - 1
 				ssrc := strings.Split(src, "/")
