@@ -202,7 +202,7 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 //
 // Return:
 // 	 error
-func Sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
+func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
 	var srctree []string
 
 	// Destination must exist and be a directory
@@ -371,7 +371,7 @@ func main() {
 		}
 
 		// Sync
-		err = Sync(srcPath, dstPath, srcvfs, dstvfs)
+		err = sync(srcPath, dstPath, srcvfs, dstvfs)
 		if err != nil {
 			log.Fatal(err)
 		}
