@@ -141,16 +141,6 @@ func initGdriveVfs(clientId string, clientSecret string, code string) (gsyncVfs,
 	return g, nil
 }
 
-// Prints error message and program usage to stderr, exit the program.
-func usage(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
-	}
-	fmt.Fprintf(os.Stderr, "Usage%s:\n", os.Args[0])
-	flag.PrintDefaults()
-	os.Exit(2)
-}
-
 // Check if fullpath looks like a gdrive path (starting with g: or gdrive:). If
 // so, return true and the path without the prefix. Otherwise, return false and
 // the path itself.
@@ -322,6 +312,16 @@ func Sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 	}
 
 	return nil
+}
+
+// Prints error message and program usage to stderr, exit the program.
+func usage(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+	}
+	fmt.Fprintf(os.Stderr, "Usage%s:\n", os.Args[0])
+	flag.PrintDefaults()
+	os.Exit(2)
 }
 
 func main() {
