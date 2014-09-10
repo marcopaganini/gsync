@@ -29,12 +29,17 @@ const (
 	DEFAULT_OPT_VERBOSE = false
 )
 
+type cmdLineOpts struct {
+	clientId     string
+	clientSecret string
+	code         string
+	exclude      string
+	verbose      bool
+}
+
 var (
 	// Command line Flags
-	optClientId     string
-	optClientSecret string
-	optCode         string
-	optVerbose      bool
+	opt cmdLineOpts
 )
 
 type GdriveCredentials struct {
@@ -134,7 +139,7 @@ func initGdriveVfs(clientId string, clientSecret string, code string) (gsyncVfs,
 	}
 
 	// Initialize virtual filesystems
-	g, err := gdrivevfs.NewGdriveFileSystem(cred.ClientId, cred.ClientSecret, optCode, cachefile)
+	g, err := gdrivevfs.NewGdriveFileSystem(cred.ClientId, cred.ClientSecret, opt.code, cachefile)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +283,7 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 				log.Fatalln(err)
 			}
 			if !exists {
-				if optVerbose {
+				if opt.verbose {
 					fmt.Println(dst)
 				}
 
@@ -302,7 +307,7 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 				if err != nil {
 					log.Fatalln(err)
 				}
-				if optVerbose {
+				if opt.verbose {
 					fmt.Println(dst)
 				}
 			}
@@ -336,11 +341,11 @@ func main() {
 	)
 
 	// Parse command line
-	flag.StringVar(&optClientId, "id", "", "Client ID")
-	flag.StringVar(&optClientSecret, "secret", "", "Client Secret")
-	flag.StringVar(&optCode, "code", "", "Authorization Code")
-	flag.BoolVar(&optVerbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
-	flag.BoolVar(&optVerbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
+	flag.StringVar(&opt.clientId, "id", "", "Client ID")
+	flag.StringVar(&opt.clientSecret, "secret", "", "Client Secret")
+	flag.StringVar(&opt.code, "code", "", "Authorization Code")
+	flag.BoolVar(&opt.verbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
+	flag.BoolVar(&opt.verbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
 	flag.Parse()
 
 	srcpaths, dstdir, err := getSourceDest()
@@ -349,7 +354,7 @@ func main() {
 	}
 
 	// Initialize virtual filesystems
-	gfs, err = initGdriveVfs(optClientId, optClientSecret, optCode)
+	gfs, err = initGdriveVfs(opt.clientId, opt.clientSecret, opt.code)
 	if err != nil {
 		log.Fatal(err)
 	}
