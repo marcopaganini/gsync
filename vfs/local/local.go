@@ -68,26 +68,34 @@ func (fs *localFileSystem) FileTree(fullpath string) ([]string, error) {
 	return pathSlice, nil
 }
 
-// Return true if fullpath is a directory, false otherwise.
+// Return true if fullpath is a directory, false if it isn't or
+// if the file doesn't exist.
 //
 // Returns:
 // 	bool
 //  error
 func (fs *localFileSystem) IsDir(fullpath string) (bool, error) {
 	fi, err := os.Stat(fullpath)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
 	if err != nil {
 		return false, err
 	}
 	return fi.Mode().IsDir(), nil
 }
 
-// Return true if fullpath is a regular file, false otherwise.
+// Return true if fullpath is a regular file, false if it isn't or
+// if the file doesn't exist.
 //
 // Returns:
 // 	bool
 //  error
 func (fs *localFileSystem) IsRegular(fullpath string) (bool, error) {
 	fi, err := os.Stat(fullpath)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
 	if err != nil {
 		return false, err
 	}
