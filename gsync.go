@@ -27,12 +27,14 @@ const (
 
 	// Flag defaults
 	DEFAULT_OPT_VERBOSE = false
+	DEFAULT_OPT_DRY_RUN = false
 )
 
 type cmdLineOpts struct {
 	clientId     string
 	clientSecret string
 	code         string
+	dryrun       bool
 	exclude      string
 	verbose      bool
 }
@@ -287,9 +289,11 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 			}
 			if !exists {
 				log.Verboseln(1, dst)
-				err := dstvfs.Mkdir(dst)
-				if err != nil {
-					log.Fatalln(err)
+				if !opt.dryrun {
+					err := dstvfs.Mkdir(dst)
+					if err != nil {
+						log.Fatalln(err)
+					}
 				}
 			}
 		} else if isregular {
@@ -299,18 +303,20 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 			}
 
 			if copyNeeded {
-				r, err := srcvfs.ReadFromFile(src)
-				if err != nil {
-					log.Fatalln(err)
-				}
-				err = dstvfs.WriteToFile(dst, r)
-				if err != nil {
-					log.Fatalln(err)
+				if !opt.dryrun {
+					r, err := srcvfs.ReadFromFile(src)
+					if err != nil {
+						log.Fatalln(err)
+					}
+					err = dstvfs.WriteToFile(dst, r)
+					if err != nil {
+						log.Fatalln(err)
+					}
 				}
 				log.Verboseln(1, dst)
 			}
 		} else {
-			fmt.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
+			log.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
 		}
 	}
 
@@ -342,6 +348,8 @@ func main() {
 	flag.StringVar(&opt.clientId, "id", "", "Client ID")
 	flag.StringVar(&opt.clientSecret, "secret", "", "Client Secret")
 	flag.StringVar(&opt.code, "code", "", "Authorization Code")
+	flag.BoolVar(&opt.dryrun, "dry-run", DEFAULT_OPT_DRY_RUN, "Dry-run mode")
+	flag.BoolVar(&opt.dryrun, "n", DEFAULT_OPT_DRY_RUN, "Dry-run mode (shorthand)")
 	flag.BoolVar(&opt.verbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
 	flag.BoolVar(&opt.verbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
 	flag.Parse()
