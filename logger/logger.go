@@ -38,14 +38,14 @@ func (o *Logger) SetDebugLevel(n int) {
 // PrintLn the message if the current verbose level >= 'level'
 func (o *Logger) Verboseln(level int, v ...interface{}) {
 	if o.verbose >= level {
-		o.Println(v)
+		o.Println(v...)
 	}
 }
 
 // Printf the message and parameters if the current verbose level >= 'level'
 func (o *Logger) VerboseF(level int, format string, v ...interface{}) {
 	if o.verbose >= level {
-		o.Printf(format, v)
+		o.Printf(format, v...)
 	}
 }
 
@@ -53,7 +53,7 @@ func (o *Logger) VerboseF(level int, format string, v ...interface{}) {
 func (o *Logger) Debugln(level int, v ...interface{}) {
 	o.SetFlags(log.Lshortfile)
 	if o.debug >= level {
-		o.Println(v)
+		o.Println(v...)
 	}
 	o.SetFlags(0)
 }
@@ -62,7 +62,7 @@ func (o *Logger) Debugln(level int, v ...interface{}) {
 func (o *Logger) DebugF(level int, format string, v ...interface{}) {
 	o.SetFlags(log.Lshortfile)
 	if o.debug >= level {
-		o.Printf(format, v)
+		o.Printf(format, v...)
 	}
 	o.SetFlags(0)
 }
