@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/user"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/marcopaganini/gsync/logger"
 	"github.com/marcopaganini/gsync/vfs/gdrive"
 	"github.com/marcopaganini/gsync/vfs/local"
 )
@@ -40,6 +40,9 @@ type cmdLineOpts struct {
 var (
 	// Command line Flags
 	opt cmdLineOpts
+
+	// Generic logging object
+	log *logger.Logger
 )
 
 type GdriveCredentials struct {
@@ -283,10 +286,7 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 				log.Fatalln(err)
 			}
 			if !exists {
-				if opt.verbose {
-					fmt.Println(dst)
-				}
-
+				log.Verboseln(1, dst)
 				err := dstvfs.Mkdir(dst)
 				if err != nil {
 					log.Fatalln(err)
@@ -307,9 +307,7 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 				if err != nil {
 					log.Fatalln(err)
 				}
-				if opt.verbose {
-					fmt.Println(dst)
-				}
+				log.Verboseln(1, dst)
 			}
 		} else {
 			fmt.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
@@ -347,6 +345,12 @@ func main() {
 	flag.BoolVar(&opt.verbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
 	flag.BoolVar(&opt.verbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
 	flag.Parse()
+
+	// Set verbose level
+	log = logger.New("")
+	if opt.verbose {
+		log.SetVerboseLevel(1)
+	}
 
 	srcpaths, dstdir, err := getSourceDest()
 	if err != nil {
