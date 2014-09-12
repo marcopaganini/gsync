@@ -1,12 +1,12 @@
-*NAME*
+**NAME**
 
 gsync - Sync files between local filesystems and Google Drive
 
-*SYNOPSIS*
+**SYNOPSIS**
 
 gsync [OPTION] source... destination
 
-*DESCRIPTION*
+**DESCRIPTION**
 
 Sync files and directories between the local filesystem and a Google Drive location.
 This program accepts multiple sources, and it's even possible to sync a local filesystem
@@ -27,19 +27,15 @@ root, so the initial slash in a path is not necessary.
 
 Options:
 
-*--dry-run*
-*-n*
+**--dry-run** or **-n**
 
 Simulate the operation (dry-run)
 
-*--verbose*
-*-v*
+**--verbose** or **-v**
 
 Verbose Mode. Without this, only error and warning messages will be printed.
 
-*--id*
-*--secret*
-*--code*
+**--id**, **--secret**, and **--code**
 
 These options are used during initial setup, to pass the required Oauth credentials
 for use with Google Drive. To set up your Google Drive account, visit the
@@ -49,10 +45,10 @@ Gsync will prompt for a code and provide an URL. Visit that URL and repeat the
 gsync command adding --code _yourcode_. Credentials will be saved locally and future
 invocations of gsync won't require these flags.
 
-*NOTES*
+**NOTES**
 
 Things are changing fast and features are being added daily.
 
-*AUTHOR*
+**AUTHOR**
 
 (C) Aug/2014 by Marco Paganini <paganini AT paganini DOT net>
