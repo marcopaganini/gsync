@@ -122,7 +122,7 @@ func (fs *localFileSystem) Mtime(fullpath string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	return fi.ModTime().Truncate(time.Second), nil
+	return fi.ModTime(), nil
 }
 
 // Return an io.Reader pointing to fullpath in the local filesystem.
@@ -132,6 +132,15 @@ func (fs *localFileSystem) Mtime(fullpath string) (time.Time, error) {
 //   error
 func (gfs *localFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
 	return os.Open(fullpath)
+}
+
+// Set the 'modification time' of fullpath to mtime
+//
+// Returns:
+//   error
+func (fs *localFileSystem) SetMtime(fullpath string, mtime time.Time) error {
+	atime := time.Now()
+	return os.Chtimes(fullpath, atime, mtime)
 }
 
 // Return the size of fullpath, in bytes

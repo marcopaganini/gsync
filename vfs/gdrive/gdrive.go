@@ -179,6 +179,15 @@ func (gfs *gdriveFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
 	return gfs.g.Download(fullpath)
 }
 
+// Set the 'modification time' of fullpath to mtime
+//
+// Returns:
+//   error
+func (gfs *gdriveFileSystem) SetMtime(fullpath string, mtime time.Time) error {
+	_, err := gfs.g.SetModifiedDate(fullpath, mtime)
+	return err
+}
+
 // Return the size of fullpath in bytes.
 //
 // Returns:

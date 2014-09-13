@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -61,8 +62,15 @@ type gsyncVfs interface {
 	Mkdir(string) error
 	Mtime(string) (time.Time, error)
 	ReadFromFile(string) (io.Reader, error)
+	SetMtime(string, time.Time) error
 	Size(string) (int64, error)
 	WriteToFile(string, io.Reader) error
+}
+
+// Directory pairs for sync post-processing of directories
+type dirpair struct {
+	src string
+	dst string
 }
 
 // Retrieve the sources and destination from the command-line, performing basic sanity checking.
@@ -213,7 +221,10 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 // Return:
 // 	 error
 func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error {
-	var srctree []string
+	var (
+		srctree  []string
+		dirpairs []dirpair
+	)
 
 	// Destination must exist and be a directory
 	exists, err := dstvfs.FileExists(dstdir)
@@ -246,6 +257,9 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 	} else {
 		srctree = []string{srcpath}
 	}
+
+	// Guarantee that we'll process a directory before files inside it
+	sort.Strings(srctree)
 
 	for _, src := range srctree {
 		// If the source path ends in a slash, we'll copy the *contents* of the
@@ -296,6 +310,9 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 					}
 				}
 			}
+			// Save directory for post processing
+			d := dirpair{src, dst}
+			dirpairs = append(dirpairs, d)
 		} else if isregular {
 			copyNeeded, err := needToCopy(srcvfs, dstvfs, src, dst)
 			if err != nil {
@@ -312,11 +329,41 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 					if err != nil {
 						log.Fatalln(err)
 					}
+					// Set destination mtime == source mtime
+					mtime, err := srcvfs.Mtime(src)
+					if err != nil {
+						return err
+					}
+					err = dstvfs.SetMtime(dst, mtime)
+					if err != nil {
+						return err
+					}
 				}
 				log.Verboseln(1, dst)
 			}
 		} else {
 			log.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
+			continue
+		}
+	}
+
+	// Set the mtimes of all destination directories to the original mtimes.
+	// We have to do it here (and bottom first!) because in certain filesystems,
+	// updating files inside directories will also change the directory mtime.
+
+	if !opt.dryrun {
+		for ix := len(dirpairs) - 1; ix >= 0; ix-- {
+			src := dirpairs[ix].src
+			dst := dirpairs[ix].dst
+
+			mtime, err := srcvfs.Mtime(src)
+			if err != nil {
+				return err
+			}
+			err = dstvfs.SetMtime(dst, mtime)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
