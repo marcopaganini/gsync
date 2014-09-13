@@ -286,11 +286,11 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 
 		isdir, err := srcvfs.IsDir(src)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		isregular, err := srcvfs.IsRegular(src)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		// Start sync operation
@@ -299,14 +299,14 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 			// Create destination dir if needed
 			exists, err := dstvfs.FileExists(dst)
 			if err != nil {
-				log.Fatalln(err)
+				return err
 			}
 			if !exists {
 				log.Verboseln(1, dst)
 				if !opt.dryrun {
 					err := dstvfs.Mkdir(dst)
 					if err != nil {
-						log.Fatalln(err)
+						return err
 					}
 				}
 			}
@@ -316,18 +316,18 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 		} else if isregular {
 			copyNeeded, err := needToCopy(srcvfs, dstvfs, src, dst)
 			if err != nil {
-				log.Fatalln(err)
+				return err
 			}
 
 			if copyNeeded {
 				if !opt.dryrun {
 					r, err := srcvfs.ReadFromFile(src)
 					if err != nil {
-						log.Fatalln(err)
+						return err
 					}
 					err = dstvfs.WriteToFile(dst, r)
 					if err != nil {
-						log.Fatalln(err)
+						return err
 					}
 					// Set destination mtime == source mtime
 					mtime, err := srcvfs.Mtime(src)
