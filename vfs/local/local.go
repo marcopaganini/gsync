@@ -130,7 +130,7 @@ func (fs *localFileSystem) Mtime(fullpath string) (time.Time, error) {
 // Returns:
 //   io.Reader
 //   error
-func (gfs *localFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
+func (fs *localFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
 	return os.Open(fullpath)
 }
 
@@ -160,7 +160,7 @@ func (fs *localFileSystem) Size(fullpath string) (int64, error) {
 //
 // Returns:
 //   error
-func (gfs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
+func (fs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
 	dir := filepath.Dir(fullpath)
 	name := filepath.Base(fullpath)
 
