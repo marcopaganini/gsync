@@ -190,7 +190,7 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 		return true, nil
 	}
 
-	// If destination exists, we check mtimes
+	// If destination exists, we check mtimes truncated to the nearest second
 	srcMtime, err := srcvfs.Mtime(srcpath)
 	if err != nil {
 		return false, err
@@ -199,6 +199,10 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 	if err != nil {
 		return false, err
 	}
+
+	srcMtime = srcMtime.Truncate(time.Second)
+	dstMtime = dstMtime.Truncate(time.Second)
+
 	if srcMtime.After(dstMtime) {
 		return true, nil
 	}
