@@ -17,9 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marcopaganini/gsync/logger"
 	"github.com/marcopaganini/gsync/vfs/gdrive"
 	"github.com/marcopaganini/gsync/vfs/local"
+	"github.com/marcopaganini/logger"
 )
 
 const (
