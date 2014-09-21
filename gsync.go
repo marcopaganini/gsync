@@ -37,6 +37,7 @@ type cmdLineOpts struct {
 	code         string
 	dryrun       bool
 	exclude      string
+	inplace      bool
 	verbose      bool
 }
 
@@ -63,6 +64,7 @@ type gsyncVfs interface {
 	Mtime(string) (time.Time, error)
 	ReadFromFile(string) (io.Reader, error)
 	SetMtime(string, time.Time) error
+	SetWriteInPlace(bool)
 	Size(string) (int64, error)
 	WriteToFile(string, io.Reader) error
 }
@@ -403,6 +405,7 @@ func main() {
 	flag.BoolVar(&opt.dryrun, "n", DEFAULT_OPT_DRY_RUN, "Dry-run mode (shorthand)")
 	flag.BoolVar(&opt.verbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
 	flag.BoolVar(&opt.verbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
+	flag.BoolVar(&opt.inplace, "inplace", false, "Upload files in place (faster, but may leave incomplete files behind if program dies)")
 	flag.Parse()
 
 	// Set verbose level
@@ -426,6 +429,9 @@ func main() {
 	isDstGdrive, dstPath := isGdrivePath(dstdir)
 	if isDstGdrive {
 		dstvfs = gfs
+	}
+	if opt.inplace {
+		dstvfs.SetWriteInPlace(true)
 	}
 
 	// Treat each path separately

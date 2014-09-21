@@ -27,6 +27,9 @@ type gdriveFileSystem struct {
 	cachefile    string
 	code         string
 	fileSlice    []string
+
+	// Options
+	optWriteInPlace bool
 }
 
 // Create a new GdriveFileSystem object
@@ -188,6 +191,14 @@ func (gfs *gdriveFileSystem) SetMtime(fullpath string, mtime time.Time) error {
 	return err
 }
 
+// Set the 'write in place' option
+//
+// Returns:
+//   error
+func (gfs *gdriveFileSystem) SetWriteInPlace(f bool) {
+	gfs.optWriteInPlace = f
+}
+
 // Return the size of fullpath in bytes.
 //
 // Returns:
@@ -206,7 +217,13 @@ func (gfs *gdriveFileSystem) Size(fullpath string) (int64, error) {
 // Returns:
 // 	 error
 func (gfs *gdriveFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
-	_, err := gfs.g.Insert(fullpath, reader)
+	var err error
+
+	if gfs.optWriteInPlace {
+		_, err = gfs.g.InsertInPlace(fullpath, reader)
+	} else {
+		_, err = gfs.g.Insert(fullpath, reader)
+	}
 	return err
 }
 

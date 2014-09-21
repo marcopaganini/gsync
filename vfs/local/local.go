@@ -18,6 +18,7 @@ import (
 
 // Local drive filesystem representation
 type localFileSystem struct {
+	optWriteInPlace bool
 }
 
 // Create a new localFileSystem object
@@ -143,6 +144,14 @@ func (fs *localFileSystem) SetMtime(fullpath string, mtime time.Time) error {
 	return os.Chtimes(fullpath, atime, mtime)
 }
 
+// Set the 'write in place' option
+//
+// Returns:
+//   error
+func (fs *localFileSystem) SetWriteInPlace(f bool) {
+	fs.optWriteInPlace = f
+}
+
 // Return the size of fullpath, in bytes
 //
 // Returns:
@@ -161,6 +170,11 @@ func (fs *localFileSystem) Size(fullpath string) (int64, error) {
 // Returns:
 //   error
 func (fs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
+	var (
+		outWriter *os.File
+		tmpFile   string
+	)
+
 	dir := filepath.Dir(fullpath)
 	name := filepath.Base(fullpath)
 
@@ -169,6 +183,7 @@ func (fs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error 
 	}
 
 	// If the file exists, it must be a regular file
+	// We don't support writing to directories.
 	fi, err := os.Stat(fullpath)
 	if err != nil {
 		if os.IsExist(err) && !fi.Mode().IsRegular() {
@@ -176,24 +191,38 @@ func (fs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error 
 		}
 	}
 
-	// Create a temporary file and write to it, renaming at the end.
-	tmpWriter, err := ioutil.TempFile(dir, name)
+	if fs.optWriteInPlace {
+		err := os.Remove(fullpath)
+		if err != nil {
+			return err
+		}
+		outWriter, err = os.Create(fullpath)
+		if err != nil {
+			return err
+		}
+		defer outWriter.Close()
+	} else {
+		// Create a temporary file and write to it, renaming at the end.
+		outWriter, err = ioutil.TempFile(dir, name)
+		if err != nil {
+			return err
+		}
+		tmpFile := outWriter.Name()
+		defer outWriter.Close()
+		defer os.Remove(tmpFile)
+	}
+
+	_, err = io.Copy(outWriter, reader)
 	if err != nil {
 		return err
 	}
-	tmpFile := tmpWriter.Name()
-	defer tmpWriter.Close()
-	defer os.Remove(tmpFile)
+	outWriter.Close()
 
-	_, err = io.Copy(tmpWriter, reader)
-	if err != nil {
-		return err
-	}
-	tmpWriter.Close()
-
-	err = os.Rename(tmpFile, fullpath)
-	if err != nil {
-		return err
+	if !fs.optWriteInPlace {
+		err = os.Rename(tmpFile, fullpath)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
