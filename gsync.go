@@ -329,7 +329,8 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 				if !opt.dryrun {
 					r, err := srcvfs.ReadFromFile(src)
 					if err != nil {
-						return err
+						log.Printf("Warning: Skipping \"%s\": %v\n", src, err)
+						continue
 					}
 					err = dstvfs.WriteToFile(dst, r)
 					if err != nil {
@@ -348,7 +349,7 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 				log.Verboseln(1, dst)
 			}
 		} else {
-			log.Printf("Warning: Ignoring \"%s\" which is not a file or directory.\n", src)
+			log.Printf("Warning: Skipping \"%s\": not a regular file or directory.\n", src)
 			continue
 		}
 	}
