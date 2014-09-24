@@ -17,12 +17,14 @@ const (
 	DEFAULT_OPT_DRY_RUN = false
 )
 
+type multiString []string
+
 type cmdLineOpts struct {
 	clientId     string
 	clientSecret string
 	code         string
 	dryrun       bool
-	exclude      string
+	exclude      multiString
 	inplace      bool
 	verbose      bool
 }
@@ -31,6 +33,22 @@ var (
 	// Command line Flags
 	opt cmdLineOpts
 )
+
+// Definitions for the custom flag type multiString
+
+// Return the string representation of the flag.
+// The String method's output will be used in diagnostics.
+func (m *multiString) String() string {
+	return fmt.Sprint(*m)
+}
+
+// Append 'value' to multistring. This allows options like --optx val1 --optx
+// val2, etc. multiString will be set to an array containing all the options.
+// 'value' is split by commas so we have to split it.
+func (m *multiString) Set(value string) error {
+	*m = append(*m, value)
+	return nil
+}
 
 // Retrieve the sources and destination from the command-line, performing basic sanity checking.
 //
@@ -65,5 +83,6 @@ func parseFlags() {
 	flag.BoolVar(&opt.verbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
 	flag.BoolVar(&opt.verbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
 	flag.BoolVar(&opt.inplace, "inplace", false, "Upload files in place (faster, but may leave incomplete files behind if program dies)")
+	flag.Var(&opt.exclude, "exclude", "List of paths to exclude (glob)")
 	flag.Parse()
 }
