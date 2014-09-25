@@ -79,8 +79,8 @@ func main() {
 
 	// Set verbose level
 	log = logger.New("")
-	if opt.verbose {
-		log.SetVerboseLevel(1)
+	if opt.verbose > 0 {
+		log.SetVerboseLevel(int(opt.verbose))
 	}
 
 	srcpaths, dstdir, err := getSourceDest()

@@ -13,11 +13,12 @@ import (
 
 const (
 	// Flag defaults
-	DEFAULT_OPT_VERBOSE = false
-	DEFAULT_OPT_DRY_RUN = false
+	DEFAULT_OPT_VERBOSE_LEVEL = 0
+	DEFAULT_OPT_DRY_RUN       = false
 )
 
 type multiString []string
+type multiLevelInt int
 
 type cmdLineOpts struct {
 	clientId     string
@@ -26,7 +27,7 @@ type cmdLineOpts struct {
 	dryrun       bool
 	exclude      multiString
 	inplace      bool
-	verbose      bool
+	verbose      multiLevelInt
 }
 
 var (
@@ -48,6 +49,27 @@ func (m *multiString) String() string {
 func (m *multiString) Set(value string) error {
 	*m = append(*m, value)
 	return nil
+}
+
+// Definitions for the custom flag type multiLevelInt
+
+// Return the string representation of the flag.
+// The String method's output will be used in diagnostics.
+func (m *multiLevelInt) String() string {
+	return fmt.Sprint(*m)
+}
+
+// Increase the value of multiLevelInt. This accepts multiple values
+// and sets the variable to the number of times those values appear in
+// the command-line. Useful for "verbose" and "Debug" levels.
+func (m *multiLevelInt) Set(_ string) error {
+	*m++
+	return nil
+}
+
+// Behave as a bool (i.e. no arguments)
+func (m *multiLevelInt) IsBoolFlag() bool {
+	return true
 }
 
 // Retrieve the sources and destination from the command-line, performing basic sanity checking.
@@ -80,9 +102,9 @@ func parseFlags() {
 	flag.StringVar(&opt.code, "code", "", "Authorization Code")
 	flag.BoolVar(&opt.dryrun, "dry-run", DEFAULT_OPT_DRY_RUN, "Dry-run mode")
 	flag.BoolVar(&opt.dryrun, "n", DEFAULT_OPT_DRY_RUN, "Dry-run mode (shorthand)")
-	flag.BoolVar(&opt.verbose, "verbose", DEFAULT_OPT_VERBOSE, "Verbose Mode")
-	flag.BoolVar(&opt.verbose, "v", DEFAULT_OPT_VERBOSE, "Verbose mode (shorthand)")
 	flag.BoolVar(&opt.inplace, "inplace", false, "Upload files in place (faster, but may leave incomplete files behind if program dies)")
 	flag.Var(&opt.exclude, "exclude", "List of paths to exclude (glob)")
+	flag.Var(&opt.verbose, "verbose", "Verbose mode (use multiple times to increase level)")
+	flag.Var(&opt.verbose, "v", "Verbose mode (use multiple times to increase level)")
 	flag.Parse()
 }
