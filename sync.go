@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -47,6 +48,26 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 		return true, nil
 	}
 
+	return false, nil
+}
+
+// Return true if the passed path matches one of the patterns in the exclusion
+// list (opt.exclude).
+//
+// Return:
+//   bool
+//   error
+
+func excluded(pathname string) (bool, error) {
+	for _, excpat := range opt.exclude {
+		match, err := filepath.Match(excpat, pathname)
+		if err != nil {
+			return false, err
+		}
+		if match {
+			return match, err
+		}
+	}
 	return false, nil
 }
 
@@ -106,6 +127,16 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 	sort.Strings(srctree)
 
 	for _, src := range srctree {
+		// Check for exclusions (--exclude)
+		exc, err := excluded(src)
+		if err != nil {
+			return err
+		}
+		if exc {
+			log.Verboseln(2, src, "excluded from copy")
+			continue
+		}
+
 		// If the source path ends in a slash, we'll copy the *contents* of the
 		// source directory to the destination. If it doesn't, we'll create a
 		// directory inside the destination. This matches rsync's behavior
