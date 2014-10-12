@@ -192,10 +192,7 @@ func (fs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error 
 	}
 
 	if fs.optWriteInPlace {
-		err := os.Remove(fullpath)
-		if err != nil {
-			return err
-		}
+		os.Remove(fullpath)
 		outWriter, err = os.Create(fullpath)
 		if err != nil {
 			return err
@@ -207,7 +204,7 @@ func (fs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error 
 		if err != nil {
 			return err
 		}
-		tmpFile := outWriter.Name()
+		tmpFile = outWriter.Name()
 		defer outWriter.Close()
 		defer os.Remove(tmpFile)
 	}
