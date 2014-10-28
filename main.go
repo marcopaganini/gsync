@@ -49,7 +49,12 @@ type gsyncVfs interface {
 func isGdrivePath(fullpath string) (bool, string) {
 	if strings.HasPrefix(fullpath, "g:") || strings.HasPrefix(fullpath, "gdrive:") {
 		idx := strings.Index(fullpath, ":")
-		return true, fullpath[idx+1:]
+		// Return a single slash if a bare g: or gdrive: is specified
+		if idx == (len(fullpath) - 1) {
+			return true, "/"
+		} else {
+			return true, fullpath[idx+1:]
+		}
 	}
 	return false, fullpath
 }
