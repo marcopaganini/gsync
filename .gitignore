@@ -2,6 +2,7 @@
 *.o
 *.a
 *.so
+gsync
 
 # Folders
 _obj
