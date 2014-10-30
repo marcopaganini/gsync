@@ -27,15 +27,27 @@ root, so the initial slash in a path is not necessary.
 
 Options:
 
-**--dry-run** or **-n**
+**--inplace**
+
+Copies the file "in-place" instead of writing to a temporary copy and doing an atomic rename at the remote end. This will make uploads of multiple small files to Gdrive faster, as it reduces the number of API calls. The downside is that partial uploads are possible (although the author was unable to reproduce this behavior in practice.)
+
+**--dry-run**  
+**-n**
 
 Simulate the operation (dry-run)
 
-**--verbose** or **-v**
+**--exclude=glob**  
+
+Exclude the files matching 'glob' (shell glob expression) from the copy. Glob is matched against the source files at copy time.
+
+**--verbose**  
+**-v**
 
 Verbose Mode. Without this, only error and warning messages will be printed.
 
-**--id**, **--secret**, and **--code**
+**--id**  
+**--secret**  
+**--code**
 
 These options are used during initial setup, to pass the required Oauth credentials
 for use with Google Drive. To set up your Google Drive account, visit the
