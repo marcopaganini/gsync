@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,6 +12,60 @@ import (
 type dirpair struct {
 	src string
 	dst string
+}
+
+// Generate a destination path based on the source directory and
+// path under that directory.
+func destPath(srcdir string, dstdir string, srcfile string) string {
+	var (
+		sdir     []string
+		sfile    []string
+		ddir     []string
+		dst      []string
+		barefile []string
+	)
+
+	// Start with source dir with all relative path elements removed.
+	sdir = []string{}
+	for _, v := range strings.Split(srcdir, "/") {
+		if v != "." && v != ".." && v != "" {
+			sdir = append(sdir, v)
+		}
+	}
+
+	// Convert to string removing empty elements, etc
+	sfile = []string{}
+	for _, v := range strings.Split(srcfile, "/") {
+		if v != "" {
+			sfile = append(sfile, v)
+		}
+	}
+	ddir = []string{}
+	for _, v := range strings.Split(dstdir, "/") {
+		if v != "" {
+			ddir = append(ddir, v)
+		}
+	}
+
+	// source file with the source directory part removed
+	barefile = sfile[len(sdir):]
+
+	if strings.HasSuffix(srcdir, "/") {
+		// Copy files INTO directory at destination.  full destination path is
+		// the destionation directory + the source file with srcdir removed.
+		dst = ddir
+		dst = append(dst, barefile...)
+	} else {
+		// Original path does not end in "/". We preserve the
+		// last path element of srcdir into the destination.
+		dst = ddir
+		if len(sdir) > 0 {
+			dst = append(dst, sdir[len(sdir)-1])
+		}
+		dst = append(dst, barefile...)
+	}
+
+	return strings.Join(dst, "/")
 }
 
 // Determine if we need to copy the file pointed by srcpath in srcvfs to
@@ -137,27 +190,7 @@ func sync(srcpath string, dstdir string, srcvfs gsyncVfs, dstvfs gsyncVfs) error
 			continue
 		}
 
-		// If the source path ends in a slash, we'll copy the *contents* of the
-		// source directory to the destination. If it doesn't, we'll create a
-		// directory inside the destination. This matches rsync's behavior
-		//
-		// Ex:
-		// /a/b/c/ -> foo = /foo/<files>...
-		// /a/b/c  -> foo = /foo/c/<files>...
-
-		// Default == copy files INTO directory at destination
-		dst := path.Join(dstdir, src[len(srcpath):])
-
-		// If source does not end in "/", we create the directory specified
-		// by srcpath as the first level inside the destination.
-		if !strings.HasSuffix(srcpath, "/") {
-			sdir := strings.Split(srcpath, "/")
-			if len(sdir) > 1 {
-				last := len(sdir) - 1
-				ssrc := strings.Split(src, "/")
-				dst = path.Join(dstdir, strings.Join(ssrc[last:], "/"))
-			}
-		}
+		dst := destPath(srcpath, dstdir, src)
 
 		isdir, err := srcvfs.IsDir(src)
 		if err != nil {
