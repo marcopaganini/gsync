@@ -36,13 +36,13 @@ func destPath(srcdir string, dstdir string, srcfile string) string {
 	// Convert to string removing empty elements, etc
 	sfile = []string{}
 	for _, v := range strings.Split(srcfile, "/") {
-		if v != "" {
+		if v != "." && v != ".." && v != "" {
 			sfile = append(sfile, v)
 		}
 	}
 	ddir = []string{}
 	for _, v := range strings.Split(dstdir, "/") {
-		if v != "" {
+		if v != "." && v != ".." && v != "" {
 			ddir = append(ddir, v)
 		}
 	}
