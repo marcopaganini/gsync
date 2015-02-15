@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -112,12 +113,15 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 //   error
 
 func excluded(pathname string) (bool, error) {
+	fname := path.Base(pathname)
 	for _, excpat := range opt.exclude {
-		match, err := filepath.Match(excpat, pathname)
+		log.Verbosef(3, "attempting to match %q to pattern %q", pathname, excpat)
+		match, err := filepath.Match(excpat, fname)
 		if err != nil {
 			return false, err
 		}
 		if match {
+			log.Verbosef(3, "excluding %q: matched %q", pathname, excpat)
 			return match, err
 		}
 	}
