@@ -1,5 +1,9 @@
 package main
 
+// This file is part of gsync, a Google Drive syncer in Go.
+// See instructions in the README.md file that accompanies this program.
+// (C) 2015 by Marco Paganini <paganini AT paganini DOT net>
+
 import (
 	"encoding/json"
 	"fmt"
@@ -11,12 +15,13 @@ import (
 )
 
 const (
-	AUTH_CACHE_FILE  = ".gsync-token-cache.json"
-	CREDENTIALS_FILE = ".gsync-credentials.json"
+	authCacheFile   = ".gsync-token-cache.json"
+	credentialsFile = ".gsync-credentials.json"
 )
 
+// GdriveCredentials contain the ClientID & secret credentials for Google Drive.
 type GdriveCredentials struct {
-	ClientId     string
+	ClientID     string
 	ClientSecret string
 }
 
@@ -28,12 +33,12 @@ type GdriveCredentials struct {
 // Returns:
 //   - *GdriveCredentials: containing the credentials.
 //   - error
-func handleCredentials(credFile string, clientId string, clientSecret string) (*GdriveCredentials, error) {
+func handleCredentials(credFile string, clientID string, clientSecret string) (*GdriveCredentials, error) {
 	var cred *GdriveCredentials
 
 	// If client, secret and code specified, save config
-	if clientId != "" && clientSecret != "" {
-		cred = &GdriveCredentials{ClientId: clientId, ClientSecret: clientSecret}
+	if clientID != "" && clientSecret != "" {
+		cred = &GdriveCredentials{ClientID: clientID, ClientSecret: clientSecret}
 		j, err := json.Marshal(*cred)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to convert configuration to JSON: %v", err)
@@ -61,23 +66,23 @@ func handleCredentials(credFile string, clientId string, clientSecret string) (*
 // Returns:
 //   gsyncVfs
 //   error
-func initGdriveVfs(clientId string, clientSecret string, code string) (gsyncVfs, error) {
+func initGdriveVfs(clientID string, clientSecret string, code string) (gsyncVfs, error) {
 	// Credentials and cache file
 	usr, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
-	credfile := path.Join(usr.HomeDir, CREDENTIALS_FILE)
-	cachefile := path.Join(usr.HomeDir, AUTH_CACHE_FILE)
+	credfile := path.Join(usr.HomeDir, credentialsFile)
+	cachefile := path.Join(usr.HomeDir, authCacheFile)
 
 	// Load/save credentials
-	cred, err := handleCredentials(credfile, clientId, clientSecret)
+	cred, err := handleCredentials(credfile, clientID, clientSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize virtual filesystems
-	g, err := gdrivevfs.NewGdriveFileSystem(cred.ClientId, cred.ClientSecret, opt.code, cachefile)
+	g, err := gdrivevfs.NewGdriveFileSystem(cred.ClientID, cred.ClientSecret, opt.code, cachefile)
 	if err != nil {
 		return nil, err
 	}

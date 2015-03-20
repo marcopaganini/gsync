@@ -2,9 +2,9 @@ package gdrivevfs
 
 // Gdrive filesystem abstractions for gsync
 //
+// This file is part of gsync, a Google Drive syncer in Go.
 // See instructions in the README.md file that accompanies this program.
-//
-// (C) 2014 by Marco Paganini <paganini AT paganini DOT net>
+// (C) 2015 by Marco Paganini <paganini AT paganini DOT net>
 
 import (
 	"fmt"
@@ -19,10 +19,10 @@ import (
 	gdp "github.com/marcopaganini/gdrive_path"
 )
 
-// Gdrive filesystem representation
-type gdriveFileSystem struct {
+// GdriveFileSystem represents a virtual filesystem in Google Drive.
+type GdriveFileSystem struct {
 	g            *gdp.Gdrive
-	clientId     string
+	clientID     string
 	clientSecret string
 	cachefile    string
 	code         string
@@ -32,14 +32,10 @@ type gdriveFileSystem struct {
 	optWriteInPlace bool
 }
 
-// Create a new GdriveFileSystem object
-//
-// Returns:
-//   *GdriveFileSystem
-//   error
-func NewGdriveFileSystem(clientId string, clientSecret string, code string, cachefile string) (*gdriveFileSystem, error) {
-	gfs := &gdriveFileSystem{
-		clientId:     clientId,
+// NewGdriveFileSystem creates a new GdriveFileSystem object
+func NewGdriveFileSystem(clientID string, clientSecret string, code string, cachefile string) (*GdriveFileSystem, error) {
+	gfs := &GdriveFileSystem{
+		clientID:     clientID,
 		clientSecret: clientSecret,
 		code:         code,
 		cachefile:    cachefile}
@@ -48,15 +44,12 @@ func NewGdriveFileSystem(clientId string, clientSecret string, code string, cach
 	return gfs, err
 }
 
-// Initialize a gdriveFileSystem object, loading the entire file tree under path
-//
-// Returns:
-//   error
-func (gfs *gdriveFileSystem) init() error {
+// Initialize a GdriveFileSystem object, loading the entire file tree under path
+func (gfs *GdriveFileSystem) init() error {
 	var err error
 
 	// Initialize GdrivePath
-	gfs.g, err = gdp.NewGdrivePath(gfs.clientId, gfs.clientSecret, gfs.code, drive.DriveScope, gfs.cachefile)
+	gfs.g, err = gdp.NewGdrivePath(gfs.clientID, gfs.clientSecret, gfs.code, drive.DriveScope, gfs.cachefile)
 	if err != nil {
 		return fmt.Errorf("Unable to initialize GdrivePath: %v", err)
 	}
@@ -64,32 +57,22 @@ func (gfs *gdriveFileSystem) init() error {
 	return nil
 }
 
-// Returns true if a file/directory exists. False otherwise.
-//
-// Returns:
-//   bool
-//   error
-func (gfs *gdriveFileSystem) FileExists(fullpath string) (bool, error) {
+// FileExists returns true if a file/directory exists. False otherwise.
+func (gfs *GdriveFileSystem) FileExists(fullpath string) (bool, error) {
 	_, err := gfs.g.Stat(fullpath)
 	// Only return error on a real error condition. For file not found, return
 	// false, nil. This makes it easier for the caller to test for real errors.
 	if err != nil {
 		if gdp.IsObjectNotFound(err) {
 			return false, nil
-		} else {
-			return false, err
 		}
+		return false, err
 	}
 	return true, nil
 }
 
-// Return a slice of strings with the full filenames found on Google drive
-// under 'fullpath'
-//
-// Returns:
-//   []string
-//   error
-func (gfs *gdriveFileSystem) FileTree(fullpath string) ([]string, error) {
+// FileTree returns a slice containing all files/directories under fullpath.
+func (gfs *GdriveFileSystem) FileTree(fullpath string) ([]string, error) {
 	// sanitize
 	_, _, pathname := splitPath(fullpath)
 
@@ -125,12 +108,9 @@ func (gfs *gdriveFileSystem) FileTree(fullpath string) ([]string, error) {
 
 }
 
-// Returns true if fullpath is a directory. False otherwise.
-//
-// Returns:
-// 	 bool
-// 	 error
-func (gfs *gdriveFileSystem) IsDir(fullpath string) (bool, error) {
+// IsDir returns true if fullpath is a directory, false if it isn't or if the
+// file doesn't exist.
+func (gfs *GdriveFileSystem) IsDir(fullpath string) (bool, error) {
 	driveFile, err := gfs.g.Stat(fullpath)
 	if err != nil {
 		return false, err
@@ -138,34 +118,22 @@ func (gfs *gdriveFileSystem) IsDir(fullpath string) (bool, error) {
 	return gdp.IsDir(driveFile), nil
 }
 
-// Return true if fullpath is *NOT* a directory, false otherwise.  Google Drive
-// does not support special files, so this should be the exact inverse of IsDir.
-//
-// Returns:
-// 	 bool
-// 	 error
-
-func (gfs *gdriveFileSystem) IsRegular(fullpath string) (bool, error) {
+// IsRegular returns true if fullpath is a regular file, false if it isn't or
+// if the file doesn't exist.
+func (gfs *GdriveFileSystem) IsRegular(fullpath string) (bool, error) {
 	isdir, err := gfs.IsDir(fullpath)
 	return !isdir, err
 }
 
-// Create a directory named 'path' on Google Drive
-//
-// Returns
-//   error
-func (gfs *gdriveFileSystem) Mkdir(path string) error {
+// Mkdir creates a directory named 'path'
+func (gfs *GdriveFileSystem) Mkdir(path string) error {
 	_, err := gfs.g.Mkdir(path)
 	return err
 }
 
-// Return the Gdrive file's Modified Time (mtime) truncated to the nearest
-// second (no nano information).
-//
-// Returns:
-//   int64
-//   error
-func (gfs *gdriveFileSystem) Mtime(fullpath string) (time.Time, error) {
+// Mtime returns the local file's Modified Time (mtime) truncated to the
+// nearest second (no nano information).
+func (gfs *GdriveFileSystem) Mtime(fullpath string) (time.Time, error) {
 	driveFile, err := gfs.g.Stat(fullpath)
 	if err != nil {
 		return time.Time{}, err
@@ -173,38 +141,25 @@ func (gfs *gdriveFileSystem) Mtime(fullpath string) (time.Time, error) {
 	return gdp.ModifiedDate(driveFile)
 }
 
-// Return an io.Reader pointing to fullpath inside Google Drive.
-//
-// Returns:
-//   io.Reader
-// 	 error
-func (gfs *gdriveFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
+// ReadFromFile returns an io.Reader pointing to fullpath in the local filesystem.
+func (gfs *GdriveFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
 	return gfs.g.Download(fullpath)
 }
 
-// Set the 'modification time' of fullpath to mtime
-//
-// Returns:
-//   error
-func (gfs *gdriveFileSystem) SetMtime(fullpath string, mtime time.Time) error {
+// SetMtime sets the 'modification time' of fullpath to mtime
+func (gfs *GdriveFileSystem) SetMtime(fullpath string, mtime time.Time) error {
 	_, err := gfs.g.SetModifiedDate(fullpath, mtime)
 	return err
 }
 
-// Set the 'write in place' option
-//
-// Returns:
-//   error
-func (gfs *gdriveFileSystem) SetWriteInPlace(f bool) {
+// SetWriteInPlace sets the 'write in place' option. This will cause write operations
+// to not use an intermediate temporary file and an atomic rename.
+func (gfs *GdriveFileSystem) SetWriteInPlace(f bool) {
 	gfs.optWriteInPlace = f
 }
 
-// Return the size of fullpath in bytes.
-//
-// Returns:
-//   int64
-//   error
-func (gfs *gdriveFileSystem) Size(fullpath string) (int64, error) {
+// Size returns the size of the file pointed by fullpath, in bytes.
+func (gfs *GdriveFileSystem) Size(fullpath string) (int64, error) {
 	driveFile, err := gfs.g.Stat(fullpath)
 	if err != nil {
 		return 0, err
@@ -212,11 +167,8 @@ func (gfs *gdriveFileSystem) Size(fullpath string) (int64, error) {
 	return driveFile.FileSize, nil
 }
 
-// Write to Gdrive file fullpath with content from reader
-//
-// Returns:
-// 	 error
-func (gfs *gdriveFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
+// WriteToFile reads all data from reader and write to file fullpath.
+func (gfs *GdriveFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
 	var err error
 
 	if gfs.optWriteInPlace {
@@ -228,12 +180,9 @@ func (gfs *gdriveFileSystem) WriteToFile(fullpath string, reader io.Reader) erro
 }
 
 // splitPath takes a Unix like pathname, splits it on its components, and
-// remove empty elements and unnecessary leading and trailing slashes.
-//
-// Returns:
-//   - string: directory
-//   - string: filename
-//   - string: completely reconstructed path.
+// remove empty elements and unnecessary leading and trailing slashes. It
+// returns three elements: A string containing the directory, a string
+// containing the file, and a string with the entire path, sanitized.
 func splitPath(pathName string) (string, string, string) {
 	var ret []string
 

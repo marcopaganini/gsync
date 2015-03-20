@@ -1,5 +1,9 @@
 package main
 
+// This file is part of gsync, a Google Drive syncer in Go.
+// See instructions in the README.md file that accompanies this program.
+// (C) 2015 by Marco Paganini <paganini AT paganini DOT net>
+
 import (
 	"fmt"
 	"path"
@@ -82,6 +86,7 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 		return false, err
 	}
 	if !exists {
+		log.Verbosef(2, "needToCopy: destination file %q does not exist; will copy.", srcpath)
 		return true, nil
 	}
 
@@ -99,9 +104,11 @@ func needToCopy(srcvfs gsyncVfs, dstvfs gsyncVfs, srcpath string, dstpath string
 	dstMtime = dstMtime.Truncate(time.Second)
 
 	if srcMtime.After(dstMtime) {
+		log.Verbosef(2, "needToCopy: %q: source is newer destination (%v > %v); will copy.", srcpath, srcMtime, dstMtime)
 		return true, nil
 	}
 
+	log.Verbosef(2, "needToCopy: %q: source is older than destination (%v <= %v); will not copy.", srcpath, srcMtime, dstMtime)
 	return false, nil
 }
 

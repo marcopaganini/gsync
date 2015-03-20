@@ -1,5 +1,9 @@
 package main
 
+// This file is part of gsync, a Google Drive syncer in Go.
+// See instructions in the README.md file that accompanies this program.
+// (C) 2015 by Marco Paganini <paganini AT paganini DOT net>
+
 import "testing"
 
 func TestDestPath(t *testing.T) {

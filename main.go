@@ -52,9 +52,8 @@ func isGdrivePath(fullpath string) (bool, string) {
 		// Return a single slash if a bare g: or gdrive: is specified
 		if idx == (len(fullpath) - 1) {
 			return true, "/"
-		} else {
-			return true, fullpath[idx+1:]
 		}
+		return true, fullpath[idx+1:]
 	}
 	return false, fullpath
 }
@@ -94,7 +93,7 @@ func main() {
 	}
 
 	// Initialize virtual filesystems
-	gfs, err = initGdriveVfs(opt.clientId, opt.clientSecret, opt.code)
+	gfs, err = initGdriveVfs(opt.clientID, opt.clientSecret, opt.code)
 	if err != nil {
 		log.Fatal(err)
 	}

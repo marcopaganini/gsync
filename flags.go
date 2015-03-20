@@ -1,27 +1,25 @@
 package main
 
+// This file is part of gsync, a Google Drive syncer in Go.
+// See instructions in the README.md file that accompanies this program.
+// (C) 2015 by Marco Paganini <paganini AT paganini DOT net>
+
 import (
 	"flag"
 	"fmt"
 )
 
-// This file is part of gsync - A google drive syncer in Go
-//
-// Command line functions
-//
-// (C) 2014 by Marco Paganini <paganini AT paganini DOT net>
-
 const (
 	// Flag defaults
-	DEFAULT_OPT_VERBOSE_LEVEL = 0
-	DEFAULT_OPT_DRY_RUN       = false
+	defaultOptVerboseLevel = 0
+	defaultOptDryRun       = false
 )
 
 type multiString []string
 type multiLevelInt int
 
 type cmdLineOpts struct {
-	clientId     string
+	clientID     string
 	clientSecret string
 	code         string
 	dryrun       bool
@@ -97,11 +95,11 @@ func getSourceDest() ([]string, string, error) {
 // Parse the command line and set the global opt variable
 func parseFlags() {
 	// Parse command line
-	flag.StringVar(&opt.clientId, "id", "", "Client ID")
+	flag.StringVar(&opt.clientID, "id", "", "Client ID")
 	flag.StringVar(&opt.clientSecret, "secret", "", "Client Secret")
 	flag.StringVar(&opt.code, "code", "", "Authorization Code")
-	flag.BoolVar(&opt.dryrun, "dry-run", DEFAULT_OPT_DRY_RUN, "Dry-run mode")
-	flag.BoolVar(&opt.dryrun, "n", DEFAULT_OPT_DRY_RUN, "Dry-run mode (shorthand)")
+	flag.BoolVar(&opt.dryrun, "dry-run", defaultOptDryRun, "Dry-run mode")
+	flag.BoolVar(&opt.dryrun, "n", defaultOptDryRun, "Dry-run mode (shorthand)")
 	flag.BoolVar(&opt.inplace, "inplace", false, "Upload files in place (faster, but may leave incomplete files behind if program dies)")
 	flag.Var(&opt.exclude, "exclude", "List of paths to exclude (glob)")
 	flag.Var(&opt.verbose, "verbose", "Verbose mode (use multiple times to increase level)")

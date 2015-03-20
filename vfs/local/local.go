@@ -2,9 +2,9 @@ package localvfs
 
 // Local filesystem abstractions for gsync
 //
+// This file is part of gsync, a Google Drive syncer in Go.
 // See instructions in the README.md file that accompanies this program.
-//
-// (C) 2014 by Marco Paganini <paganini AT paganini DOT net>
+// (C) 2015 by Marco Paganini <paganini AT paganini DOT net>
 
 import (
 	"fmt"
@@ -16,27 +16,19 @@ import (
 	"time"
 )
 
-// Local drive filesystem representation
-type localFileSystem struct {
+// LocalFileSystem holds state on an instance of LocalFileSystem.
+type LocalFileSystem struct {
 	optWriteInPlace bool
 }
 
-// Create a new localFileSystem object
-//
-// Returns:
-//   *localFileSystem
-//   error
-func NewLocalFileSystem() *localFileSystem {
-	fs := &localFileSystem{}
+// NewLocalFileSystem creates a new LocalFileSystem object
+func NewLocalFileSystem() *LocalFileSystem {
+	fs := &LocalFileSystem{}
 	return fs
 }
 
-// Returns true if a file/directory exists. False otherwise.
-//
-// Returns:
-//   bool
-//   error
-func (fs *localFileSystem) FileExists(fullpath string) (bool, error) {
+// FileExists returns true if a file/directory exists. False otherwise.
+func (fs *LocalFileSystem) FileExists(fullpath string) (bool, error) {
 	_, err := os.Stat(fullpath)
 	if err != nil {
 		return false, nil
@@ -44,12 +36,8 @@ func (fs *localFileSystem) FileExists(fullpath string) (bool, error) {
 	return true, nil
 }
 
-// Return a slice containing all files/directories under fullpath
-//
-// Returns:
-//   []string - slice of full pathnames
-//   error
-func (fs *localFileSystem) FileTree(fullpath string) ([]string, error) {
+// FileTree returns a slice containing all files/directories under fullpath.
+func (fs *LocalFileSystem) FileTree(fullpath string) ([]string, error) {
 	// Use a map so duplicates are removed automatically
 	pathMap := make(map[string]bool)
 	err := filepath.Walk(fullpath, func(srcpath string, _ os.FileInfo, err error) error {
@@ -62,20 +50,16 @@ func (fs *localFileSystem) FileTree(fullpath string) ([]string, error) {
 
 	// Create sorted list
 	pathSlice := []string{}
-	for k, _ := range pathMap {
+	for k := range pathMap {
 		pathSlice = append(pathSlice, k)
 	}
 	sort.Strings(pathSlice)
 	return pathSlice, nil
 }
 
-// Return true if fullpath is a directory, false if it isn't or
-// if the file doesn't exist.
-//
-// Returns:
-// 	bool
-//  error
-func (fs *localFileSystem) IsDir(fullpath string) (bool, error) {
+// IsDir returns true if fullpath is a directory, false if it isn't or if the
+// file doesn't exist.
+func (fs *LocalFileSystem) IsDir(fullpath string) (bool, error) {
 	fi, err := os.Stat(fullpath)
 	if os.IsNotExist(err) {
 		return false, nil
@@ -86,13 +70,9 @@ func (fs *localFileSystem) IsDir(fullpath string) (bool, error) {
 	return fi.Mode().IsDir(), nil
 }
 
-// Return true if fullpath is a regular file, false if it isn't or
+// IsRegular returns true if fullpath is a regular file, false if it isn't or
 // if the file doesn't exist.
-//
-// Returns:
-// 	bool
-//  error
-func (fs *localFileSystem) IsRegular(fullpath string) (bool, error) {
+func (fs *LocalFileSystem) IsRegular(fullpath string) (bool, error) {
 	fi, err := os.Stat(fullpath)
 	if os.IsNotExist(err) {
 		return false, nil
@@ -103,22 +83,15 @@ func (fs *localFileSystem) IsRegular(fullpath string) (bool, error) {
 	return fi.Mode().IsRegular(), nil
 }
 
-// Create a local directory named 'path'
-//
-// Returns
-//   error
-func (fs *localFileSystem) Mkdir(path string) error {
+// Mkdir creates a directory named 'path'
+func (fs *LocalFileSystem) Mkdir(path string) error {
 	err := os.Mkdir(path, 0755)
 	return err
 }
 
-// Return the local file's Modified Time (mtime) truncated to the nearest
-// second (no nano information).
-//
-// Returns:
-//   int64
-//   error
-func (fs *localFileSystem) Mtime(fullpath string) (time.Time, error) {
+// Mtime returns the local file's Modified Time (mtime) truncated to the
+// nearest second (no nano information).
+func (fs *LocalFileSystem) Mtime(fullpath string) (time.Time, error) {
 	fi, err := os.Stat(fullpath)
 	if err != nil {
 		return time.Time{}, err
@@ -126,38 +99,25 @@ func (fs *localFileSystem) Mtime(fullpath string) (time.Time, error) {
 	return fi.ModTime(), nil
 }
 
-// Return an io.Reader pointing to fullpath in the local filesystem.
-//
-// Returns:
-//   io.Reader
-//   error
-func (fs *localFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
+// ReadFromFile returns an io.Reader pointing to fullpath in the local filesystem.
+func (fs *LocalFileSystem) ReadFromFile(fullpath string) (io.Reader, error) {
 	return os.Open(fullpath)
 }
 
-// Set the 'modification time' of fullpath to mtime
-//
-// Returns:
-//   error
-func (fs *localFileSystem) SetMtime(fullpath string, mtime time.Time) error {
+// SetMtime sets the 'modification time' of fullpath to mtime
+func (fs *LocalFileSystem) SetMtime(fullpath string, mtime time.Time) error {
 	atime := time.Now()
 	return os.Chtimes(fullpath, atime, mtime)
 }
 
-// Set the 'write in place' option
-//
-// Returns:
-//   error
-func (fs *localFileSystem) SetWriteInPlace(f bool) {
+// SetWriteInPlace sets the 'write in place' option. This will cause write operations
+// to not use an intermediate temporary file and an atomic rename.
+func (fs *LocalFileSystem) SetWriteInPlace(f bool) {
 	fs.optWriteInPlace = f
 }
 
-// Return the size of fullpath, in bytes
-//
-// Returns:
-// 	int64
-//  error
-func (fs *localFileSystem) Size(fullpath string) (int64, error) {
+// Size returns the size of the file pointed by fullpath, in bytes.
+func (fs *LocalFileSystem) Size(fullpath string) (int64, error) {
 	fi, err := os.Stat(fullpath)
 	if err != nil {
 		return 0, err
@@ -165,11 +125,8 @@ func (fs *localFileSystem) Size(fullpath string) (int64, error) {
 	return fi.Size(), nil
 }
 
-// Read all data from reader and write to file fullpath
-//
-// Returns:
-//   error
-func (fs *localFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
+// WriteToFile reads all data from reader and write to file fullpath.
+func (fs *LocalFileSystem) WriteToFile(fullpath string, reader io.Reader) error {
 	var (
 		outWriter *os.File
 		tmpFile   string
